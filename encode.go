@@ -63,8 +63,8 @@ func queryValue(v string) (string, error) {
 }
 
 const (
-	keyMessage         = "pass idempotencyKey as 1 to 200 printable ASCII characters"
-	holdKeyMessage     = "pass idempotencyKey as 1 to 193 printable ASCII characters"
+	keyMessage     = "pass idempotencyKey as 1 to 200 printable ASCII characters"
+	holdKeyMessage = "pass idempotencyKey as 1 to 193 printable ASCII characters"
 )
 
 // validKey reports whether an idempotency key is 1 to max printable ASCII characters that neither
