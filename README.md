@@ -44,7 +44,7 @@ result, err := customer.RecordUsage(ctx, entitler.Metered("ai_credits"), 1, requ
 
 Take the customer id from your authenticated session, never from anything the caller sends.
 `IsEntitled` never fails because of Entitler: it answers the default you pass (`false` for paid
-features) and reports the error to `WithOnError`. [`examples/quickstart`](examples/quickstart/main.go)
+features) and reports the error to `WithOnError`. [`examples/quickstart`](https://github.com/entitlerhq/entitler-go/blob/main/examples/quickstart/main.go)
 runs the same steps as a script, for the customer its configuration names.
 
 ## Two clients
@@ -74,28 +74,28 @@ go tool entitler generate -out entitler_features.go -package features
 ```
 
 Then `customer.Check(ctx, features.FeatureAiCredits, nil)`; usage methods accept only metered
-features. See [feature constants](docs/feature-constants.md).
+features. See [feature constants](https://github.com/entitlerhq/entitler-go/blob/main/docs/feature-constants.md).
 
 ## Guides
 
-- [Checking access](docs/checking-access.md)
-- [Recording usage](docs/recording-usage.md): modes, idempotency keys, holds, batches
-- [Pricing pages and visitors](docs/pricing-and-visitors.md)
-- [Billing pages](docs/billing.md)
-- [Company decisions](docs/company-decisions.md): `SetPlan`, add-ons, grants, meters
-- [Store purchases](docs/store-purchases.md)
-- [The in-app client](docs/in-app-client.md)
-- [Offline snapshots](docs/offline-snapshots.md)
-- [Reliability](docs/reliability.md): timeouts, retries, the cache, stale answers
-- [Errors](docs/errors.md)
-- [Reading at another instant](docs/as-of.md)
-- [Tracks](docs/tracks.md)
-- [Scopes](docs/scopes.md)
-- [Configuration](docs/configuration.md)
-- [Testing your app](docs/testing.md)
-- [net/http](docs/net-http.md)
-- [Feature constants and the command-line tool](docs/feature-constants.md)
-- [Versioning and support](docs/versioning.md)
+- [Checking access](https://github.com/entitlerhq/entitler-go/blob/main/docs/checking-access.md)
+- [Recording usage](https://github.com/entitlerhq/entitler-go/blob/main/docs/recording-usage.md): modes, idempotency keys, holds, batches
+- [Pricing pages and visitors](https://github.com/entitlerhq/entitler-go/blob/main/docs/pricing-and-visitors.md)
+- [Billing pages](https://github.com/entitlerhq/entitler-go/blob/main/docs/billing.md)
+- [Company decisions](https://github.com/entitlerhq/entitler-go/blob/main/docs/company-decisions.md): `SetPlan`, add-ons, grants, meters
+- [Store purchases](https://github.com/entitlerhq/entitler-go/blob/main/docs/store-purchases.md)
+- [The in-app client](https://github.com/entitlerhq/entitler-go/blob/main/docs/in-app-client.md)
+- [Offline snapshots](https://github.com/entitlerhq/entitler-go/blob/main/docs/offline-snapshots.md)
+- [Reliability](https://github.com/entitlerhq/entitler-go/blob/main/docs/reliability.md): timeouts, retries, the cache, stale answers
+- [Errors](https://github.com/entitlerhq/entitler-go/blob/main/docs/errors.md)
+- [Reading at another instant](https://github.com/entitlerhq/entitler-go/blob/main/docs/as-of.md)
+- [Tracks](https://github.com/entitlerhq/entitler-go/blob/main/docs/tracks.md)
+- [Scopes](https://github.com/entitlerhq/entitler-go/blob/main/docs/scopes.md)
+- [Configuration](https://github.com/entitlerhq/entitler-go/blob/main/docs/configuration.md)
+- [Testing your app](https://github.com/entitlerhq/entitler-go/blob/main/docs/testing.md)
+- [net/http](https://github.com/entitlerhq/entitler-go/blob/main/docs/net-http.md)
+- [Feature constants and the command-line tool](https://github.com/entitlerhq/entitler-go/blob/main/docs/feature-constants.md)
+- [Versioning and support](https://github.com/entitlerhq/entitler-go/blob/main/docs/versioning.md)
 
 The API reference is on [pkg.go.dev](https://pkg.go.dev/github.com/entitlerhq/entitler-go).
 
@@ -106,15 +106,15 @@ Each runs with `ENTITLER_KEY` set to a test environment's secret key, from the `
 `ENTITLER_CUSTOMER` names, or a sample customer; `in-app`, `offline` and `net-http` stand in an
 app's session for the sample customer `test_1001`, and `pricing-page` acts for a visitor:
 
-- [`quickstart`](examples/quickstart/main.go): register, check and record usage.
-- [`pricing-page`](examples/pricing-page/main.go): pricing signed out with `ENTITLER_PUBLISHABLE_KEY`, and from a server with a visitor.
-- [`in-app`](examples/in-app/main.go): a token route and an in-app client with a token source.
-- [`metered-work`](examples/metered-work/main.go): holds around streamed work, `WithHold`, observe mode.
-- [`offline`](examples/offline/main.go): snapshots verified offline as a fallback.
-- [`billing`](examples/billing/main.go): a billing page, every next step, the portal and the company's decisions.
-- [`generated-features`](examples/generated-features/main.go): generated constants in use.
-- [`net-http`](examples/net-http/main.go): middleware for a `net/http` server.
-- [`testing`](examples/testing/app_test.go): an app's tests with `entitlertest.FakeCustomer`.
+- [`quickstart`](https://github.com/entitlerhq/entitler-go/blob/main/examples/quickstart/main.go): register, check and record usage.
+- [`pricing-page`](https://github.com/entitlerhq/entitler-go/blob/main/examples/pricing-page/main.go): pricing signed out with `ENTITLER_PUBLISHABLE_KEY`, and from a server with a visitor.
+- [`in-app`](https://github.com/entitlerhq/entitler-go/blob/main/examples/in-app/main.go): a token route and an in-app client with a token source.
+- [`metered-work`](https://github.com/entitlerhq/entitler-go/blob/main/examples/metered-work/main.go): holds around streamed work, `WithHold`, observe mode.
+- [`offline`](https://github.com/entitlerhq/entitler-go/blob/main/examples/offline/main.go): snapshots verified offline as a fallback.
+- [`billing`](https://github.com/entitlerhq/entitler-go/blob/main/examples/billing/main.go): a billing page, every next step, the portal and the company's decisions.
+- [`generated-features`](https://github.com/entitlerhq/entitler-go/blob/main/examples/generated-features/main.go): generated constants in use.
+- [`net-http`](https://github.com/entitlerhq/entitler-go/blob/main/examples/net-http/main.go): middleware for a `net/http` server.
+- [`testing`](https://github.com/entitlerhq/entitler-go/blob/main/examples/testing/app_test.go): an app's tests with `entitlertest.FakeCustomer`.
 
 ```sh
 cd examples && ENTITLER_KEY=ent_test_… go run ./quickstart
@@ -122,4 +122,4 @@ cd examples && ENTITLER_KEY=ent_test_… go run ./quickstart
 
 ## Licence
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](https://github.com/entitlerhq/entitler-go/blob/main/LICENSE).

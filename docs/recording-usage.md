@@ -52,18 +52,24 @@ A hold reserves an amount before work starts. It counts against `Remaining`, and
 says otherwise). `Remaining` drops by the whole hold while work runs and rises when it settles, so
 a live meter shows `Held` apart.
 
-`StartHold` answers the open hold, or `*entitler.UsageRefusedError` when there is no allowance, so
-a handler can refuse before it streams. Report the total used with `Use` as you go, and defer
-`Close` right after: however the handler ends, the hold settles what was reported, or is released
-when nothing was.
+`StartHold` answers the open hold before any work starts. It answers `*entitler.UsageRefusedError`
+when there is no allowance, so a handler can answer `402` with an upgrade prompt before it streams,
+and `*entitler.UsageReplayedError` when the key belongs to work that already finished, so the
+handler answers that work's result rather than running it again. Never let either surface as a
+`500`. Report the total used with `Use` as you go, and defer `Close` right after: however the
+handler ends, the hold settles what was reported, or is released when nothing was.
 
 ```go
 hold, err := customer.StartHold(ctx, aiCredits, 50, messageID, nil)
 var refused *entitler.UsageRefusedError
-if errors.As(err, &refused) {
-	return fmt.Errorf("out of credits: upgrade to %d plan(s)", len(refused.Result.Upgrades))
-}
-if err != nil {
+var replayed *entitler.UsageReplayedError
+switch {
+case errors.As(err, &refused):
+	return fmt.Errorf("%w: upgrade to %d plan(s)", errOutOfCredits, len(refused.Result.Upgrades))
+case errors.As(err, &replayed):
+	fmt.Printf("Message %s was answered before (%s).\n", messageID, replayed.Result.Outcome)
+	return nil
+case err != nil:
 	return err
 }
 defer hold.Close(ctx)
@@ -97,14 +103,26 @@ return err
   never an upgrade prompt. `Hold.Duplicate` is true when another caller holds the same key and may
   be doing the same work.
 
-`WithHold` wraps work that runs inside one call:
+`WithHold` wraps work that runs inside one call, and answers the same two errors:
 
 ```go
-return entitler.WithHold(ctx, customer, aiCredits, 20, jobID,
+s, err := entitler.WithHold(ctx, customer, aiCredits, 20, jobID,
 	func(ctx context.Context, hold *entitler.Hold) (summary, error) {
 		s := summary{text: "A short summary.", tokens: 7}
 		return s, hold.Use(s.tokens)
 	}, nil)
+var refused *entitler.UsageRefusedError
+var replayed *entitler.UsageReplayedError
+switch {
+case errors.As(err, &refused):
+	return summary{}, errOutOfCredits
+case errors.As(err, &replayed):
+	return summaries[jobID], nil
+case err != nil:
+	return summary{}, err
+}
+summaries[jobID] = s
+return s, nil
 ```
 
 When `work` fails, or `ctx` ends while it runs, `WithHold` settles what `work` reported with `Use`

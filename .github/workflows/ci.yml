@@ -175,6 +175,7 @@ jobs:
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           REPO: ${{ github.repository }}
           ACTOR: ${{ github.actor }}
+          ENTITLER_CUSTOMER: sdk-go-quickstart-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           if [ -z "$ENTITLER_TEST_KEY" ]; then
             if [ "$EVENT" = pull_request ] && { [ "$HEAD_REPO" != "$REPO" ] || [ "$ACTOR" = "dependabot[bot]" ]; }; then

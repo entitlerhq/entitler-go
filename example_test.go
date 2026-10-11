@@ -99,11 +99,15 @@ func ExampleCustomer_StartHold() {
 
 	hold, err := customer.StartHold(ctx, entitler.Metered("ai_credits"), 50, "message-123", nil)
 	var refused *entitler.UsageRefusedError
-	if errors.As(err, &refused) {
-		fmt.Println("upgrade")
+	var replayed *entitler.UsageReplayedError
+	switch {
+	case errors.As(err, &refused):
+		fmt.Println("answer 402 with an upgrade prompt")
 		return
-	}
-	if err != nil {
+	case errors.As(err, &replayed):
+		fmt.Println("answer the reply this message received before")
+		return
+	case err != nil:
 		log.Fatal(err)
 	}
 	defer hold.Close(ctx)
@@ -128,8 +132,19 @@ func ExampleWithHold() {
 		func(_ context.Context, hold *entitler.Hold) (string, error) {
 			return "a reply", hold.Use(7)
 		}, nil)
-	fmt.Println(reply, err)
-	// Output: a reply <nil>
+	var refused *entitler.UsageRefusedError
+	var replayed *entitler.UsageReplayedError
+	switch {
+	case errors.As(err, &refused):
+		fmt.Println("answer 402 with an upgrade prompt")
+	case errors.As(err, &replayed):
+		fmt.Println("answer the reply job-42 produced before")
+	case err != nil:
+		log.Fatal(err)
+	default:
+		fmt.Println(reply)
+	}
+	// Output: a reply
 }
 
 func ExampleCustomer_Subscribe() {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"testing"
 	"testing/synctest"
@@ -446,4 +447,48 @@ func TestAnyAnswerEndsTheOutageWindow(t *testing.T) {
 			t.Fatalf("a successful write leaves the window open: %v %+v", err, c)
 		}
 	})
+}
+
+func TestHeaderNumbersSaturate(t *testing.T) {
+	long := strings.Repeat("9", 400)
+	if d, ok := secondsOf(long); !ok || d != maxDuration {
+		t.Errorf("seconds: %v %v", d, ok)
+	}
+	if d, ok := maxAgeOf("private, max-age=" + long); !ok || d != maxDuration {
+		t.Errorf("max-age: %v %v", d, ok)
+	}
+	if d := retryAfterOf(long, time.Now()); d == nil || *d != time.Duration(1<<63-1) {
+		t.Errorf("Retry-After: %v", d)
+	}
+	f := &fakeHTTP{}
+	f.push(fakeAnswer{status: 200, body: checkBody("u", "f"), header: map[string]string{"Cache-Control": "max-age=" + long, "Age": long}},
+		fakeAnswer{status: 200, body: checkBody("u", "f"), header: map[string]string{"Cache-Control": "max-age=" + long}})
+	cu := testServer(t, f).Customer("u")
+	for range 3 {
+		if _, err := cu.Check(ctx, Key("f"), nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if f.count() != 2 {
+		t.Errorf("an answer as old as its max-age is stale, a fresh one is kept: %d requests", f.count())
+	}
+}
+
+func TestCustomerForgottenInFlightIsRevalidated(t *testing.T) {
+	g := newGenerations(2)
+	at := time.Now()
+	g.bump("x", at)
+	tracked := g.mark("x")
+	untracked := g.mark("y")
+	g.bump("a", at)
+	g.bump("b", at)
+	if !g.moved("x", tracked) {
+		t.Error("a tracked customer forgotten in flight counts as moved")
+	}
+	if !g.moved("y", untracked) {
+		t.Error("a customer untracked at the mark counts as moved after any forgetting")
+	}
+	if g.moved("b", g.mark("b")) {
+		t.Error("no write since the mark")
+	}
 }

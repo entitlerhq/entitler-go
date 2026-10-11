@@ -6,6 +6,7 @@ package app
 import (
 	"context"
 	"errors"
+	"sync"
 
 	"github.com/entitlerhq/entitler-go"
 )
@@ -26,17 +27,31 @@ func Export(ctx context.Context, customer entitler.Customer, document string) (s
 	return "%PDF " + document, nil
 }
 
-// Summarise spends credits on a summary, charging what it used.
+// summaries stands in for the app's own store of finished summaries, by job id.
+var summaries sync.Map
+
+// Summarise spends credits on a summary, charging what it used. A job that already finished
+// answers its summary again without charging twice.
 func Summarise(ctx context.Context, customer entitler.Customer, jobID string, words int64) (string, error) {
 	summary, err := entitler.WithHold(ctx, customer, aiCredits, 10, jobID,
 		func(_ context.Context, hold *entitler.Hold) (string, error) {
-			return "summary", hold.Use(min(words/100+1, 10))
+			return "summary of " + jobID, hold.Use(min(words/100+1, 10))
 		}, nil)
 	var refused *entitler.UsageRefusedError
-	if errors.As(err, &refused) {
+	var replayed *entitler.UsageReplayedError
+	switch {
+	case errors.As(err, &refused):
 		return "", ErrUpgrade
+	case errors.As(err, &replayed):
+		if earlier, ok := summaries.Load(jobID); ok {
+			return earlier.(string), nil
+		}
+		return "", err
+	case err != nil:
+		return "", err
 	}
-	return summary, err
+	summaries.Store(jobID, summary)
+	return summary, nil
 }
 
 // Upgrade moves the customer to a plan and answers where to send them next.

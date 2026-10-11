@@ -3,6 +3,7 @@ package entitler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"math/rand/v2"
 	"net/http"
@@ -32,12 +33,21 @@ type authorisation struct {
 	identity   string
 }
 
+// Format writes the type's name alone, so no format shows the credentials it holds.
+func (authorisation) Format(f fmt.State, _ rune) { hidden(f, "entitler.authorisation") }
+
+// hidden writes a name in place of a value's fields, for values holding credentials or headers.
+func hidden(f fmt.State, name string) { _, _ = io.WriteString(f, name) }
+
 // credentials sign a client's requests.
 type credentials struct {
 	kind  string
 	key   string
 	token *tokens
 }
+
+// Format writes the type's name alone, so no format shows the key or token it holds.
+func (*credentials) Format(f fmt.State, _ rune) { hidden(f, "entitler.credentials") }
 
 func (c *credentials) authorise(ctx context.Context) (authorisation, error) {
 	switch c.kind {
@@ -212,6 +222,11 @@ type received struct {
 	status int
 	header http.Header
 	body   []byte
+}
+
+// Format writes the status alone, so no format shows the answer's headers or body.
+func (r received) Format(f fmt.State, _ rune) {
+	hidden(f, "entitler.received("+strconv.Itoa(r.status)+")")
 }
 
 type meta struct {

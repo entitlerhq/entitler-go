@@ -34,6 +34,9 @@ type staticToken string
 // Token answers the token.
 func (t staticToken) Token(context.Context) (string, error) { return string(t), nil }
 
+// Format writes the type's name alone, so no format shows the token.
+func (staticToken) Format(f fmt.State, _ rune) { hidden(f, "entitler.StaticToken") }
+
 // StaticToken answers a [TokenSource] holding one token, which never refreshes: a 401 fails the call.
 func StaticToken(token string) TokenSource { return staticToken(token) }
 
@@ -55,11 +58,17 @@ type tokens struct {
 	received bool
 }
 
+// Format writes the type's name alone, so no format shows the token it keeps.
+func (*tokens) Format(f fmt.State, _ rune) { hidden(f, "entitler.tokens") }
+
 type refresh struct {
 	done  chan struct{}
 	token string
 	err   error
 }
+
+// Format writes the type's name alone, so no format shows the token it carries.
+func (*refresh) Format(f fmt.State, _ rune) { hidden(f, "entitler.refresh") }
 
 func (t *tokens) get(ctx context.Context) (string, error) {
 	t.mu.Lock()

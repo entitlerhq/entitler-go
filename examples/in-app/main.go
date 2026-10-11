@@ -84,7 +84,7 @@ func main() {
 	fmt.Println("Export to PDF:", me.IsEntitled(ctx, entitler.OnOff("export_pdf"), false, nil))
 	key := "in-app-" + time.Now().UTC().Format("20060102T150405.000")
 	if result, err := me.RecordUsage(ctx, entitler.Metered("ai_credits"), 1, key, nil); err == nil {
-		fmt.Printf("%s recorded for %s\n", result.Outcome, me.ID())
+		fmt.Printf("Usage %s for %s\n", result.Outcome, me.ID())
 	} else {
 		fmt.Println("Could not record usage:", err)
 	}

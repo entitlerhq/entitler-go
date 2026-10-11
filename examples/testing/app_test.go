@@ -31,8 +31,10 @@ func TestSummariseChargesWhatItUsed(t *testing.T) {
 	if check.Meter.Used != 3 {
 		t.Fatalf("used %d", check.Meter.Used)
 	}
-	if _, err := Summarise(ctx, customer, "job-1", 250); err == nil {
-		t.Fatal("the same job's key replays: the work already happened")
+	again, err := Summarise(ctx, customer, "job-1", 250)
+	check, _ = customer.Check(ctx, entitler.Metered("ai_credits"), nil)
+	if err != nil || again != "summary of job-1" || check.Meter.Used != 3 {
+		t.Fatalf("a replayed job answers its summary without charging again: %q %v, used %d", again, err, check.Meter.Used)
 	}
 	empty, _ := entitlertest.FakeCustomer(entitlertest.Values{"ai_credits": entitlertest.Metered(5, 5)}, nil)
 	if _, err := Summarise(ctx, empty, "job-2", 10); !errors.Is(err, ErrUpgrade) {

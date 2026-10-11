@@ -458,3 +458,47 @@ func TestRetryAfterOnTheError(t *testing.T) {
 		}
 	}
 }
+
+func TestNoFormatShowsCredentialsOrHeaders(t *testing.T) {
+	const secret = "sekret_value_123"
+	values := []any{
+		IssuedCustomerToken{Token: secret, Customer: "u"},
+		&IssuedCustomerToken{Token: secret, Customer: "u"},
+		StaticToken(secret),
+		&tokens{current: secret},
+		&refresh{token: secret},
+		authorisation{credential: secret, bearer: secret, identity: secret},
+		&credentials{key: secret},
+		received{status: 200, header: http.Header{"Authorization": {secret}}, body: []byte(secret)},
+	}
+	for _, v := range values {
+		for _, verb := range []string{"%v", "%+v", "%#v", "%s", "%q", "%x", "%d"} {
+			out := fmt.Sprintf(verb, v)
+			if strings.Contains(out, secret) || strings.Contains(out, fmt.Sprintf("%x", secret)) {
+				t.Errorf("%T with %s shows the secret: %s", v, verb, out)
+			}
+		}
+	}
+}
+
+func TestCorruptGzipIsAConnectionError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Encoding", "gzip")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte("this is not gzip"))
+	}))
+	defer server.Close()
+	srv, err := NewServer(testKey, WithBaseURL(server.URL), WithMaxRetries(0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+	_, err = srv.Features(ctx)
+	var conn *ConnectionError
+	if !errors.As(err, &conn) || strings.Contains(err.Error(), testKey) || strings.Contains(err.Error(), server.URL) {
+		t.Fatalf("%T %v", err, err)
+	}
+	if conn.Unwrap() == nil {
+		t.Error("the cause is kept")
+	}
+}

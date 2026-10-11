@@ -1,6 +1,10 @@
 package entitler
 
-import "time"
+import (
+	"fmt"
+	"io"
+	"time"
+)
 
 // Environment is the environment an answer comes from.
 type Environment struct {
@@ -934,7 +938,8 @@ type RegisteredCustomer struct {
 	Replayed bool
 }
 
-// IssuedCustomerToken is a customer token for an in-app client. Its String form leaves the token out.
+// IssuedCustomerToken is a customer token for an in-app client. No format verb shows the token:
+// every one, %#v included, writes the String form, which leaves it out.
 type IssuedCustomerToken struct {
 	// Token is the token. Hand it only to the signed-in customer it names.
 	Token string
@@ -950,6 +955,9 @@ type IssuedCustomerToken struct {
 func (t IssuedCustomerToken) String() string {
 	return "customer token for " + t.Customer + " (expires " + formatInstant(t.ExpiresAt) + ")"
 }
+
+// Format writes the String form for every verb, %#v included, so no format shows the token.
+func (t IssuedCustomerToken) Format(f fmt.State, _ rune) { _, _ = io.WriteString(f, t.String()) }
 
 // IssuedSnapshot is a signed snapshot of the customer's entitlements for offline use. Verify it
 // with [VerifySnapshot].

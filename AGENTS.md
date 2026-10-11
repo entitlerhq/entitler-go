@@ -26,9 +26,16 @@ job in `ci.yml` is in its `needs`.
 
 ## Authorship and pull requests
 
-- Every commit is authored and committed by the repository owner, with no assistant attribution:
-  no `Co-Authored-By` or session trailers, no "Generated with" line, no session link and no model
-  name. Check `git log --format='%an <%ae>%n%b'` before every push.
+- Every commit is authored and committed by the repository owner. Before your first commit, run:
+
+  ```sh
+  git config user.name "Romain Francez"
+  git config user.email "1330814+romainfrancez@users.noreply.github.com"
+  ```
+
+- Commits carry no assistant attribution: no `Co-Authored-By` or session trailers, no "Generated
+  with" line, no session link and no model name. Check `git log --format='%an <%ae>%n%b'` before
+  every push.
 - No file, commit or branch names the tool that wrote it, and this file is the only instruction
   file for agents.
 - Push your branch only. Do not open, edit or comment on pull requests or issues, and never create
