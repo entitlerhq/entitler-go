@@ -287,22 +287,22 @@ func TestLiveHolds(t *testing.T) {
 	if released, err := h2.Release(ctxLive); err != nil || released.Outcome != entitler.OutcomeReleased {
 		t.Fatalf("release: %+v %v", released, err)
 	}
-	value, err := entitler.WithHold(ctxLive, c, credits, 5, "hold-3", func(ctx context.Context, h *entitler.Hold) (string, error) {
+	value, err := entitler.WithHold(ctxLive, c, credits, 5, "hold-3", func(_ context.Context, h *entitler.Hold) (string, error) {
 		return "done", h.Use(2)
 	}, nil)
 	if err != nil || value != "done" {
 		t.Fatalf("WithHold: %v %v", value, err)
 	}
 	boom := errors.New("work failed")
-	if _, err := entitler.WithHold(ctxLive, c, credits, 5, "hold-4", func(ctx context.Context, h *entitler.Hold) (int, error) {
+	if _, err := entitler.WithHold(ctxLive, c, credits, 5, "hold-4", func(_ context.Context, h *entitler.Hold) (int, error) {
 		_ = h.Use(1)
 		return 0, boom
-	}, nil); err != boom {
+	}, nil); !errors.Is(err, boom) {
 		t.Fatal(err)
 	}
 	if _, err := entitler.WithHold(ctxLive, c, credits, 5, "hold-5", func(context.Context, *entitler.Hold) (int, error) {
 		return 0, boom
-	}, nil); err != boom {
+	}, nil); !errors.Is(err, boom) {
 		t.Fatal(err)
 	}
 	check, _ := c.Check(ctxLive, credits, nil)

@@ -575,7 +575,7 @@ func TestConformanceIdempotencyKeys(t *testing.T) {
 						_, err = h.Finish(ctx)
 					}
 				case "withHold":
-					_, err = WithHold(ctx, cu, credits, 1, key, func(ctx context.Context, h *Hold) (int, error) {
+					_, err = WithHold(ctx, cu, credits, 1, key, func(_ context.Context, h *Hold) (int, error) {
 						return 0, h.Use(2)
 					}, nil)
 				case "adjustMeter":
@@ -682,7 +682,7 @@ func runBatchCase(t *testing.T, c map[string]any) {
 	if n, ok := c["calls"]; ok {
 		calls = int(num(n))
 	}
-	f := &fakeHTTP{handle: func(r *http.Request, body string) fakeAnswer {
+	f := &fakeHTTP{handle: func(_ *http.Request, body string) fakeAnswer {
 		var sent struct {
 			Events []any `json:"events"`
 		}

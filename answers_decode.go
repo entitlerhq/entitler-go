@@ -540,13 +540,13 @@ func decodeGrant(o object) Grant {
 		Actor:     o.at("actor").strOrNull(),
 	}
 	value := o.at("value")
-	switch s := value.str(); {
-	case s == "":
+	switch s := value.str(); s {
+	case "":
 		g.Value = On{}
-	case s == "unlimited":
+	case "unlimited":
 		g.Value = Unlimited{}
 	default:
-		g.Value = grantAmount(value, s)
+		g.Value = grantAmount(value, value.str())
 	}
 	return g
 }

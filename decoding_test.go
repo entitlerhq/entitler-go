@@ -137,6 +137,7 @@ func TestEveryRequiredMemberMissingInTurn(t *testing.T) {
 			func(s *entitler.Server) error { _, err := s.SnapshotKeys(bg); return err }},
 	}
 	optional := regexp.MustCompile(`^(used|held|remaining|resetsAt|registration)$|(^|\.)(price|anchor)$|^(entitlements|items|features)\[\d\]\.(used|held|remaining|resetsAt)$`)
+	meterAtTop := regexp.MustCompile(`^(used|held|remaining|resetsAt)$`)
 	usageRequired := regexp.MustCompile(`^features\[\d\]\.(used|held|remaining|resetsAt)$`)
 	for _, a := range answers {
 		var whole any
@@ -157,13 +158,14 @@ func TestEveryRequiredMemberMissingInTurn(t *testing.T) {
 		}
 		for _, p := range paths(whole, "") {
 			if strings.HasPrefix(p, "plans[0].features.") || strings.Contains(p, ".ids.") || strings.HasPrefix(p, "banked.") ||
-				strings.Contains(p, "metadata.") || a.name == "keys" && false {
+				strings.Contains(p, "metadata.") {
 				continue
 			}
 			body, _ := json.Marshal(without(whole, p))
 			err := serve(body)
-			isOptional := optional.MatchString(p) && !(a.name == "usage" && usageRequired.MatchString(p)) &&
-				!(a.name != "check" && a.name != "usage result" && regexp.MustCompile(`^(used|held|remaining|resetsAt)$`).MatchString(p))
+			required := a.name == "usage" && usageRequired.MatchString(p) ||
+				a.name != "check" && a.name != "usage result" && meterAtTop.MatchString(p)
+			isOptional := optional.MatchString(p) && !required
 			if isOptional && err != nil {
 				t.Errorf("%s: leaving out the optional %s fails: %v", a.name, p, err)
 			}

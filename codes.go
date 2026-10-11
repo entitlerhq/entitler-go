@@ -36,7 +36,7 @@ const (
 	// CodeConnectionUnreadable means the provider connection cannot be read.
 	CodeConnectionUnreadable Code = "connection_unreadable"
 	// CodeCredentialNotAllowed means the route refuses this kind of credential; it is never retried.
-	CodeCredentialNotAllowed Code = "credential_not_allowed"
+	CodeCredentialNotAllowed Code = "credential_not_allowed" //nolint:gosec // an error code, not a credential
 	// CodeCustomerNotFound means no customer has that id in this environment.
 	CodeCustomerNotFound Code = "customer_not_found"
 	// CodeEmailTaken means the email belongs to another account.

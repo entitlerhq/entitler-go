@@ -69,8 +69,8 @@ const (
 
 // validKey reports whether an idempotency key is 1 to max printable ASCII characters that neither
 // starts nor ends with a space.
-func validKey(key string, max int) bool {
-	if len(key) == 0 || len(key) > max || key[0] == ' ' || key[len(key)-1] == ' ' {
+func validKey(key string, limit int) bool {
+	if len(key) == 0 || len(key) > limit || key[0] == ' ' || key[len(key)-1] == ' ' {
 		return false
 	}
 	for i := 0; i < len(key); i++ {
@@ -94,9 +94,9 @@ func optionalKey(key string) (string, error) {
 
 // requiredKey checks a key the method requires. Go cannot tell a missing string from an empty
 // one, so an empty key fails the length rule.
-func requiredKey(key string, max int) (string, error) {
-	if !validKey(key, max) {
-		if max == 193 {
+func requiredKey(key string, limit int) (string, error) {
+	if !validKey(key, limit) {
+		if limit == 193 {
 			return "", argError(holdKeyMessage)
 		}
 		return "", argError(keyMessage)

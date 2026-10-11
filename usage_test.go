@@ -241,27 +241,27 @@ func TestCloseDisposesOfTheHold(t *testing.T) {
 func TestWithHold(t *testing.T) {
 	f := holdAPI{}.fake()
 	cu := testServer(t, f).Customer("u")
-	value, err := WithHold(ctx, cu, credits, 10, "w1", func(ctx context.Context, h *Hold) (string, error) {
+	value, err := WithHold(ctx, cu, credits, 10, "w1", func(_ context.Context, h *Hold) (string, error) {
 		return "reply", h.Use(7)
 	}, nil)
 	if err != nil || value != "reply" || lastBody(f)["amount"] != float64(7) {
 		t.Fatalf("%v %v", value, err)
 	}
 	boom := errors.New("boom")
-	_, err = WithHold(ctx, cu, credits, 10, "w2", func(ctx context.Context, h *Hold) (int, error) {
+	_, err = WithHold(ctx, cu, credits, 10, "w2", func(_ context.Context, h *Hold) (int, error) {
 		_ = h.Use(3)
 		return 0, boom
 	}, nil)
-	if err != boom || lastBody(f)["amount"] != float64(3) {
+	if !errors.Is(err, boom) || lastBody(f)["amount"] != float64(3) {
 		t.Fatalf("a failure after Use settles what was reported: %v", err)
 	}
 	n := len(f.seen())
 	_, err = WithHold(ctx, cu, credits, 10, "w3", func(context.Context, *Hold) (int, error) { return 0, boom }, nil)
-	if err != boom || f.seen()[n+1].method != "DELETE" {
+	if !errors.Is(err, boom) || f.seen()[n+1].method != "DELETE" {
 		t.Fatal("a failure before Use releases")
 	}
 	cancelled, cancel := context.WithCancel(ctx)
-	_, err = WithHold(cancelled, cu, credits, 10, "w4", func(ctx context.Context, h *Hold) (int, error) {
+	_, err = WithHold(cancelled, cu, credits, 10, "w4", func(_ context.Context, h *Hold) (int, error) {
 		_ = h.Use(2)
 		cancel()
 		return 1, nil
@@ -271,7 +271,7 @@ func TestWithHold(t *testing.T) {
 	}
 	func() {
 		defer func() { _ = recover() }()
-		_, _ = WithHold(ctx, cu, credits, 10, "w5", func(ctx context.Context, h *Hold) (int, error) {
+		_, _ = WithHold(ctx, cu, credits, 10, "w5", func(_ context.Context, h *Hold) (int, error) {
 			_ = h.Use(4)
 			panic("work panicked")
 		}, nil)

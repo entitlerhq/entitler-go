@@ -31,6 +31,7 @@ func (f TokenFunc) Token(ctx context.Context) (string, error) { return f(ctx) }
 
 type staticToken string
 
+// Token answers the token.
 func (t staticToken) Token(context.Context) (string, error) { return string(t), nil }
 
 // StaticToken answers a [TokenSource] holding one token, which never refreshes: a 401 fails the call.
@@ -98,7 +99,7 @@ func (t *tokens) refreshLocked(ctx context.Context) (string, error) {
 	if p == nil {
 		p = &refresh{done: make(chan struct{})}
 		t.pending = p
-		go t.ask(p)
+		go t.ask(p) //nolint:contextcheck // the refresh belongs to the client, not to the request that started it
 	}
 	t.mu.Unlock()
 	select {
@@ -143,7 +144,7 @@ func (t *tokens) check(ctx context.Context, token string, err error) (string, ti
 	if t.closing.Err() != nil {
 		return "", time.Time{}, time.Time{}, ErrClosed
 	}
-	if context.Cause(ctx) == errSourceTimeout {
+	if errors.Is(context.Cause(ctx), errSourceTimeout) {
 		return "", time.Time{}, time.Time{}, &TokenError{message: fmt.Sprintf("the token source did not answer within %s", t.timeout)}
 	}
 	if err != nil {

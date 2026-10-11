@@ -21,7 +21,7 @@ const noFeatures = `{"environment":{"id":"e","name":"development","kind":"test"}
 const keys = `{"keys":[{"use":"sig","kty":"EC","crv":"P-256","x":"aa","y":"bb","kid":"k1","alg":"ES256"}]}`
 
 func api(t *testing.T, status int, body string) *httptest.Server {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(status)
 		_, _ = w.Write([]byte(body))
 	}))
@@ -174,13 +174,13 @@ func TestUsageAndExitCodes(t *testing.T) {
 // TestCommandSpelling fails on any spelling of the command other than `go tool entitler` in the
 // docs, samples and README, since a bare name could resolve to someone else's package.
 func TestCommandSpelling(t *testing.T) {
-	bare := regexp.MustCompile("(?m)(^|[^/\\w-])entitler (generate|snapshot-keys)")
+	bare := regexp.MustCompile(`(?m)(^|[^/\w-])entitler (generate|snapshot-keys)`)
 	root := filepath.Join("..", "..")
 	_ = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() && (d.Name() == ".git" || d.Name() == "testdata") {
 			return filepath.SkipDir
 		}
-		if d.IsDir() || !(strings.HasSuffix(path, ".md") || strings.HasSuffix(path, ".go") || strings.HasSuffix(path, ".yml")) {
+		if d.IsDir() || !strings.HasSuffix(path, ".md") && !strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, ".yml") {
 			return nil
 		}
 		data, _ := os.ReadFile(path)

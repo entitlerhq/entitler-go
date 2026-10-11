@@ -59,7 +59,7 @@ func TestReplayedHeaderMustBeExactlyTrue(t *testing.T) {
 
 func TestRedirectsReachNoOtherOrigin(t *testing.T) {
 	var reached atomic.Int32
-	other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { reached.Add(1) }))
+	other := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { reached.Add(1) }))
 	defer other.Close()
 	for _, status := range []int{301, 302, 303, 307, 308} {
 		api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -221,10 +221,10 @@ func TestClosedClient(t *testing.T) {
 		if err := <-done; !errors.Is(err, ErrClosed) || err.Error() != "this Entitler client is closed. Create a new one" {
 			t.Fatalf("in flight: %v", err)
 		}
-		if _, err := srv.Features(ctx); err != ErrClosed {
+		if _, err := srv.Features(ctx); !errors.Is(err, ErrClosed) {
 			t.Errorf("later call: %v", err)
 		}
-		if _, err := derived.Customer("u").Check(ctx, Key("f"), nil); err != ErrClosed {
+		if _, err := derived.Customer("u").Check(ctx, Key("f"), nil); !errors.Is(err, ErrClosed) {
 			t.Errorf("derived: %v", err)
 		}
 		if err := srv.Close(); err != nil {

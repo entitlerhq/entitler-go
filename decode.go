@@ -281,7 +281,7 @@ func parseInstant(s string) (time.Time, error) {
 	hour, ok4 := digits(11, 13)
 	minute, ok5 := digits(14, 16)
 	second, ok6 := digits(17, 19)
-	if !(ok1 && ok2 && ok3 && ok4 && ok5 && ok6) || s[4] != '-' || s[7] != '-' || s[13] != ':' ||
+	if !ok1 || !ok2 || !ok3 || !ok4 || !ok5 || !ok6 || s[4] != '-' || s[7] != '-' || s[13] != ':' ||
 		s[16] != ':' || (s[10] != 'T' && s[10] != 't') {
 		return time.Time{}, bad
 	}

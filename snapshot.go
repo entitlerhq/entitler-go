@@ -178,13 +178,7 @@ func snapshotInvalid(message string) error {
 }
 
 func urlSafe(s string) bool {
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if !(c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-' || c == '_') {
-			return false
-		}
-	}
-	return true
+	return strings.Trim(s, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_") == ""
 }
 
 // VerifySnapshot verifies an entitlements snapshot offline, with no request: its ES256 signature

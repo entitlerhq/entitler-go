@@ -272,7 +272,7 @@ const (
 	// StatusIncompleteExpired is incomplete and expired.
 	StatusIncompleteExpired SubscriptionStatus = "incomplete_expired"
 	// StatusTrialing is in a trial.
-	StatusTrialing SubscriptionStatus = "trialing"
+	StatusTrialing SubscriptionStatus = "trialing" //nolint:misspell // Stripe spells its status this way
 	// StatusActive is active.
 	StatusActive SubscriptionStatus = "active"
 	// StatusPastDue is past due.

@@ -343,7 +343,7 @@ func TestFakeCustomerHolds(t *testing.T) {
 	if _, err := customer.StartHold(ctx, credits, 1000, "msg-3", nil); !errors.As(err, new(*entitler.UsageRefusedError)) {
 		t.Errorf("refused: %v", err)
 	}
-	value, err := entitler.WithHold(ctx, customer, credits, 5, "msg-4", func(ctx context.Context, h *entitler.Hold) (string, error) {
+	value, err := entitler.WithHold(ctx, customer, credits, 5, "msg-4", func(_ context.Context, h *entitler.Hold) (string, error) {
 		return "done", h.Use(3)
 	}, nil)
 	if err != nil || value != "done" {

@@ -54,7 +54,7 @@ func Render(list *entitler.FeatureList, opts Options) ([]byte, error) {
 			if i > 0 {
 				b.WriteString("\n")
 			}
-			b.WriteString(doc(names[f.Key], f, byKey))
+			b.WriteString(doc(names[f.Key], f))
 			b.WriteString(names[f.Key] + " = " + constructor(f, byKey) + "\n")
 		}
 		b.WriteString(")\n")
@@ -67,7 +67,8 @@ func token(s string) bool {
 		return false
 	}
 	for i, r := range s {
-		if !(r == '_' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || i > 0 && r >= '0' && r <= '9') {
+		letter := r == '_' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z'
+		if !letter && (i == 0 || r < '0' || r > '9') {
 			return false
 		}
 	}
@@ -133,7 +134,7 @@ func Name(key string) string {
 	var b strings.Builder
 	b.WriteString("Feature")
 	for _, word := range strings.FieldsFunc(key, func(r rune) bool {
-		return !(r < 128 && (unicode.IsLetter(r) || unicode.IsDigit(r)))
+		return r >= 128 || !unicode.IsLetter(r) && !unicode.IsDigit(r)
 	}) {
 		if upper := strings.ToUpper(word); initialisms[upper] {
 			b.WriteString(upper)
@@ -192,7 +193,7 @@ func lines(text string) []string {
 	return strings.Split(text, "\n")
 }
 
-func doc(name string, f entitler.FeatureListing, byKey map[string]entitler.FeatureListing) string {
+func doc(name string, f entitler.FeatureListing) string {
 	title := f.Name
 	if strings.TrimSpace(title) == "" {
 		title = f.Key

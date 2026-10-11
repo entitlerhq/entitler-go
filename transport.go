@@ -117,7 +117,9 @@ func newEngine(s settings, creds *credentials, inApp bool, description string) *
 		inApp:         inApp,
 		description:   description,
 		now:           time.Now,
-		jitter:        func(limit time.Duration) time.Duration { return time.Duration(rand.Int64N(int64(limit) + 1)) },
+		jitter: func(limit time.Duration) time.Duration {
+			return time.Duration(rand.Int64N(int64(limit) + 1)) //nolint:gosec // backoff jitter needs no cryptographic randomness
+		},
 	}
 	e.closing, e.close = context.WithCancel(context.Background())
 	if s.httpClient != nil {
@@ -595,7 +597,7 @@ func (c caller) attempt(ctx context.Context, r *request, auth authorisation, eta
 	if ctx.Err() != nil {
 		return received{}, ctx.Err()
 	}
-	if context.Cause(actx) == errAttemptTimeout {
+	if errors.Is(context.Cause(actx), errAttemptTimeout) {
 		return received{}, &TimeoutError{IdempotencyKey: r.key, timeout: c.timeout}
 	}
 	var urlErr *url.Error

@@ -417,7 +417,7 @@ func (c *ServerCustomer) SetPlan(ctx context.Context, choice PlanChoice, p *SetP
 	if err != nil {
 		return nil, err
 	}
-	r, err := c.write("PUT", "/plan", key, params.Decision.into(body), true)
+	r, err := c.write("PUT", "/plan", key, params.into(body), true)
 	if err != nil {
 		return nil, err
 	}
@@ -465,7 +465,7 @@ func (c *ServerCustomer) SetAddOn(ctx context.Context, addOn string, quantity in
 	if err != nil {
 		return nil, err
 	}
-	r, err := c.write("PUT", "/add-ons/"+seg, key, params.Decision.into(body), true)
+	r, err := c.write("PUT", "/add-ons/"+seg, key, params.into(body), true)
 	if err != nil {
 		return nil, err
 	}
@@ -515,7 +515,7 @@ func (c *ServerCustomer) Grant(ctx context.Context, f Feature, p *GrantParams) (
 	if err != nil {
 		return nil, err
 	}
-	r, err := c.write("POST", "/grants", key, params.Decision.into(body), true)
+	r, err := c.write("POST", "/grants", key, params.into(body), true)
 	if err != nil {
 		return nil, err
 	}
@@ -547,7 +547,7 @@ func decisionBody(p *DecisionParams) (any, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	if body := params.Decision.into(map[string]any{}); len(body) > 0 {
+	if body := params.into(map[string]any{}); len(body) > 0 {
 		return body, key, nil
 	}
 	return nil, key, nil
@@ -611,7 +611,7 @@ func (c *ServerCustomer) AdjustMeter(ctx context.Context, f MeteredFeature, p *A
 	default:
 		return nil, argError("pass either by, a whole number other than 0, or to, a whole number of 0 or more")
 	}
-	return c.usageWrite(ctx, "POST", "/meters/"+seg+"/adjustments", key, params.Decision.into(body))
+	return c.usageWrite(ctx, "POST", "/meters/"+seg+"/adjustments", key, params.into(body))
 }
 
 // CancelUsage cancels a usage report, a correction: it answers a UsageResult with

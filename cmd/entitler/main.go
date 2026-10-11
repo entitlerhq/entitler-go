@@ -56,26 +56,26 @@ func main() {
 
 func run(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprint(stderr, usage)
+		_, _ = fmt.Fprint(stderr, usage)
 		return 1
 	}
 	switch args[0] {
 	case "-h", "-help", "--help", "help":
-		fmt.Fprint(stdout, usage)
+		_, _ = fmt.Fprint(stdout, usage)
 		return 0
 	case "generate":
 		return runGenerate(ctx, args[1:], getenv, stdout, stderr)
 	case "snapshot-keys":
 		return runSnapshotKeys(ctx, args[1:], stdout, stderr)
 	}
-	fmt.Fprintf(stderr, "Unknown command %q.\n\n%s", args[0], usage)
+	_, _ = fmt.Fprintf(stderr, "Unknown command %q.\n\n%s", args[0], usage)
 	return 1
 }
 
 func flags(name string, stdout, stderr io.Writer) *flag.FlagSet {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	fs.Usage = func() { fmt.Fprint(stdout, usage) }
+	fs.Usage = func() { _, _ = fmt.Fprint(stdout, usage) }
 	return fs
 }
 
@@ -105,13 +105,13 @@ func failure(stderr io.Writer, err error) int {
 	var conn *entitler.ConnectionError
 	switch {
 	case errors.As(err, &apiErr):
-		fmt.Fprintf(stderr, "Entitler request failed: %s (%s).\n", strings.TrimSuffix(apiErr.Message, "."), apiErr.Code)
+		_, _ = fmt.Fprintf(stderr, "Entitler request failed: %s (%s).\n", strings.TrimSuffix(apiErr.Message, "."), apiErr.Code)
 	case errors.As(err, &timeout):
-		fmt.Fprintf(stderr, "Entitler request failed: %s (%s).\n", strings.TrimSuffix(timeout.Error(), "."), entitler.CodeTimedOut)
+		_, _ = fmt.Fprintf(stderr, "Entitler request failed: %s (%s).\n", strings.TrimSuffix(timeout.Error(), "."), entitler.CodeTimedOut)
 	case errors.As(err, &conn):
-		fmt.Fprintf(stderr, "Entitler request failed: %s (%s).\n", strings.TrimSuffix(conn.Error(), "."), entitler.CodeConnectionFailed)
+		_, _ = fmt.Fprintf(stderr, "Entitler request failed: %s (%s).\n", strings.TrimSuffix(conn.Error(), "."), entitler.CodeConnectionFailed)
 	default:
-		fmt.Fprintln(stderr, err)
+		_, _ = fmt.Fprintln(stderr, err)
 	}
 	return 1
 }
@@ -130,12 +130,12 @@ func runGenerate(ctx context.Context, args []string, getenv func(string) string,
 		return code
 	}
 	if strings.TrimSpace(*key) == "" {
-		fmt.Fprintln(stderr, "Provide an API key with --key or set ENTITLER_KEY. The key needs the plans:read scope.")
+		_, _ = fmt.Fprintln(stderr, "Provide an API key with --key or set ENTITLER_KEY. The key needs the plans:read scope.")
 		return 1
 	}
 	existing, err := os.ReadFile(*out)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		fmt.Fprintln(stderr, err)
+		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
 	if *pkg == "" {
@@ -155,13 +155,13 @@ func runGenerate(ctx context.Context, args []string, getenv func(string) string,
 	if err != nil {
 		return failure(stderr, err)
 	}
-	defer srv.Close()
+	defer func() { _ = srv.Close() }()
 	list, err := srv.Features(ctx)
 	if err != nil {
 		return failure(stderr, err)
 	}
 	if len(list.Features) == 0 && generate.Count(existing) > 0 && !*allowEmpty {
-		fmt.Fprintf(stderr, "Entitler listed no features, so %s was left as it is. Check the key's environment, or pass --allow-empty.\n", *out)
+		_, _ = fmt.Fprintf(stderr, "Entitler listed no features, so %s was left as it is. Check the key's environment, or pass --allow-empty.\n", *out)
 		return 1
 	}
 	file, err := generate.Render(list, generate.Options{Package: *pkg, Existing: existing})
@@ -171,17 +171,17 @@ func runGenerate(ctx context.Context, args []string, getenv func(string) string,
 	features := plural(len(list.Features), "feature", "features")
 	if *check {
 		if existing != nil && generate.SameIgnoringSource(existing, file) {
-			fmt.Fprintf(stdout, "%s is up to date with %s.\n", *out, features)
+			_, _ = fmt.Fprintf(stdout, "%s is up to date with %s.\n", *out, features)
 			return 0
 		}
-		fmt.Fprintf(stderr, "%s is out of date. Run go tool entitler generate to update it.\n", *out)
+		_, _ = fmt.Fprintf(stderr, "%s is out of date. Run go tool entitler generate to update it.\n", *out)
 		return 1
 	}
 	if err := writeFile(*out, file); err != nil {
-		fmt.Fprintln(stderr, err)
+		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
-	fmt.Fprintf(stdout, "Wrote %s to %s.\n", features, *out)
+	_, _ = fmt.Fprintf(stdout, "Wrote %s to %s.\n", features, *out)
 	return 0
 }
 
@@ -200,13 +200,13 @@ func runSnapshotKeys(ctx context.Context, args []string, stdout, stderr io.Write
 	if err != nil {
 		return failure(stderr, err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 	keys, err := client.SnapshotKeys(ctx)
 	if err != nil {
 		return failure(stderr, err)
 	}
 	if len(keys.Keys) == 0 {
-		fmt.Fprintf(stderr, "Entitler published no snapshot keys, so %s was left as it is.\n", *out)
+		_, _ = fmt.Fprintf(stderr, "Entitler published no snapshot keys, so %s was left as it is.\n", *out)
 		return 1
 	}
 	compact, err := json.Marshal(keys)
@@ -218,10 +218,10 @@ func runSnapshotKeys(ctx context.Context, args []string, stdout, stderr io.Write
 		return failure(stderr, err)
 	}
 	if err := writeFile(*out, []byte(indented.String()+"\n")); err != nil {
-		fmt.Fprintln(stderr, err)
+		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
-	fmt.Fprintf(stdout, "Wrote %s to %s.\n", plural(len(keys.Keys), "snapshot key", "snapshot keys"), *out)
+	_, _ = fmt.Fprintf(stdout, "Wrote %s to %s.\n", plural(len(keys.Keys), "snapshot key", "snapshot keys"), *out)
 	return 0
 }
 
@@ -232,7 +232,7 @@ func writeFile(path string, data []byte) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tmp.Name())
+	defer func() { _ = os.Remove(tmp.Name()) }()
 	if _, err := tmp.Write(data); err != nil {
 		_ = tmp.Close()
 		return err
