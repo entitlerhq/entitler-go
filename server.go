@@ -19,7 +19,7 @@ type Server struct {
 // secret key never does. Construction errors wrap [ErrInvalidArgument].
 func NewServer(key string, opts ...ServerOption) (*Server, error) {
 	key = trimCredential(key)
-	if key == "" {
+	if key == "" || !headerSafe(key) {
 		return nil, argError("provide an Entitler API key from the dashboard")
 	}
 	if strings.HasPrefix(key, "ent_pk_") {

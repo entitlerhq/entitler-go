@@ -52,7 +52,7 @@ func clientSettings(opts []ClientOption) (settings, error) {
 
 func publishableKey(key string) (string, error) {
 	key = trimCredential(key)
-	if key == "" {
+	if key == "" || !headerSafe(key) {
 		return "", argError("provide an Entitler API key from the dashboard")
 	}
 	return key, nil
@@ -72,7 +72,7 @@ func tokenOf(source TokenSource, blankMessage string) (*tokens, error) {
 	t := &tokens{source: source}
 	if s, ok := source.(staticToken); ok {
 		token := trimCredential(string(s))
-		if token == "" {
+		if token == "" || !headerSafe(token) {
 			return nil, argError(blankMessage)
 		}
 		t.static, t.current, t.received = true, token, true

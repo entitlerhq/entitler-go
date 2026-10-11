@@ -163,6 +163,9 @@ func (t *tokens) check(ctx context.Context, token string, err error) (string, ti
 	if token == "" {
 		return "", time.Time{}, time.Time{}, &TokenError{message: "the token source answered a blank token"}
 	}
+	if !headerSafe(token) {
+		return "", time.Time{}, time.Time{}, &TokenError{message: "the token source answered a token that is not a readable JWT"}
+	}
 	if t.static {
 		return token, time.Time{}, time.Time{}, nil
 	}

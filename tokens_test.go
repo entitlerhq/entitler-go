@@ -300,3 +300,38 @@ func TestStaticTokenNeverRefreshes(t *testing.T) {
 		t.Error(s)
 	}
 }
+
+func TestCredentialsAHeaderCannotCarry(t *testing.T) {
+	bad := map[string]string{"space": " ", "tab": "\t", "non-ASCII": "é", "control": "\x01"}
+	for name, c := range bad {
+		if _, err := NewServer("ent_test_a" + c + "b"); err == nil || err.Error() != "provide an Entitler API key from the dashboard" {
+			t.Errorf("server key with a %s: %v", name, err)
+		}
+		if _, err := NewPublishableClient("ent_pk_test_a" + c + "b"); err == nil || err.Error() != "provide an Entitler API key from the dashboard" {
+			t.Errorf("publishable key with a %s: %v", name, err)
+		}
+		if _, err := NewIdentityClient("ent_pk_test_a"+c+"b", StaticToken(tokenFor(time.Now().Add(time.Hour)))); err == nil || err.Error() != "provide an Entitler API key from the dashboard" {
+			t.Errorf("identity client's key with a %s: %v", name, err)
+		}
+		if _, err := NewClient(StaticToken("a" + c + "b")); err == nil || err.Error() != "provide a customer token minted by your server" {
+			t.Errorf("static token with a %s: %v", name, err)
+		}
+		if _, err := NewIdentityClient("ent_pk_test_k", StaticToken("a"+c+"b")); err == nil || err.Error() != "provide the identity token your sign-in provider issued" {
+			t.Errorf("static identity token with a %s: %v", name, err)
+		}
+
+		f := &fakeHTTP{}
+		token := tokenFor(time.Now().Add(time.Hour))
+		answer := token[:10] + c + token[10:]
+		client, err := NewClient(TokenFunc(func(context.Context) (string, error) { return answer, nil }), WithHTTPClient(f.client()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = client.Me().Check(ctx, Key("f"), nil)
+		var tokenErr *TokenError
+		if !errors.As(err, &tokenErr) || err.Error() != "the token source answered a token that is not a readable JWT" || f.count() != 0 {
+			t.Errorf("provider answer with a %s: %v after %d requests", name, err, f.count())
+		}
+		_ = client.Close()
+	}
+}

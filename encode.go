@@ -39,6 +39,17 @@ func trimCredential(s string) string {
 	return strings.Trim(s, " \t\r\n")
 }
 
+// headerSafe reports whether every character of a trimmed credential is visible ASCII (! to ~),
+// so it can go in a header without the HTTP library's error for a bad value ever quoting it.
+func headerSafe(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] < '!' || s[i] > '~' {
+			return false
+		}
+	}
+	return true
+}
+
 // segment checks a path identifier and encodes it as one path segment. Ids are sent exactly as
 // given, never trimmed.
 func segment(id, blankMessage string) (string, error) {
