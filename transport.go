@@ -412,7 +412,6 @@ func (c caller) cachedRead(ctx context.Context, r *request, auth authorisation, 
 		}
 		return nil, meta{}, err
 	}
-	e.outage.recover()
 	receivedAt := e.now()
 	if e.gens.moved(r.customer, mark) {
 		receivedAt = started
@@ -491,6 +490,7 @@ func (c caller) exchange(ctx context.Context, r *request, auth authorisation, et
 		var retryAfter *time.Duration
 		if err == nil {
 			if got.status < 300 || got.status == http.StatusNotModified {
+				e.outage.recover()
 				return got, auth, nil
 			}
 			apiErr := apiErrorOf(got, r.key, e.now())

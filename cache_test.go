@@ -287,7 +287,6 @@ func TestStaleAnswersAndTheOutageWindow(t *testing.T) {
 		if err != nil || !check.Stale || len(reported) != 1 {
 			t.Fatalf("stale: %v %+v %v", err, check, reported)
 		}
-		// During the window, every read with a young entry answers it without a request.
 		var wg sync.WaitGroup
 		for range 20 {
 			wg.Go(func() {
@@ -425,6 +424,26 @@ func TestFailingTokenSourceNeverAnswersStale(t *testing.T) {
 		}
 		if client.Me().IsEntitled(ctx, Key("f"), true, nil) != true || !reported {
 			t.Error("IsEntitled answers its default")
+		}
+	})
+}
+
+func TestAnyAnswerEndsTheOutageWindow(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		f := &fakeHTTP{}
+		f.push(cached(checkBody("u", "f"), `"v1"`, "private, no-cache"), fakeAnswer{status: 503})
+		cu := testServer(t, f).Customer("u")
+		_, _ = cu.Check(ctx, Key("f"), nil)
+		if c, err := cu.Check(ctx, Key("f"), nil); err != nil || !c.Stale {
+			t.Fatalf("the window did not open: %v %+v", err, c)
+		}
+		f.push(fakeAnswer{status: 200, body: usageBody("recorded", nil, time.Time{}, 1)})
+		if _, err := cu.RecordUsage(ctx, Metered("f"), 1, "k1", nil); err != nil {
+			t.Fatal(err)
+		}
+		f.push(cached(checkBody("u", "f"), `"v2"`, "private, no-cache"))
+		if c, err := cu.Check(ctx, Key("f"), nil); err != nil || c.Stale || f.count() != 4 {
+			t.Fatalf("a successful write leaves the window open: %v %+v", err, c)
 		}
 	})
 }
