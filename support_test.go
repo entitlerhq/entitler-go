@@ -3,11 +3,13 @@ package entitler
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -193,4 +195,15 @@ func checkBody(customer, feature string) string {
 		`","type":"boolean","entitled":true,"value":true,"sources":[],"upgrades":[],` +
 		`"environment":{"id":"env_1","name":"Development","kind":"test"},"track":{"id":"trk_1","name":"All customers"},` +
 		`"release":2,"change":null,"testers":false,"experiment":null}`
+}
+
+// tokenFor writes an unsigned JWT-shaped token that expires at exp, issued an hour before it.
+func tokenFor(exp time.Time) string {
+	return tokenWith(exp.Add(-time.Hour), exp, "sig")
+}
+
+func tokenWith(iat, exp time.Time, signature string) string {
+	enc := base64.RawURLEncoding
+	payload := `{"sub":"user_42","iat":` + strconv.FormatInt(iat.Unix(), 10) + `,"exp":` + strconv.FormatInt(exp.Unix(), 10) + `}`
+	return enc.EncodeToString([]byte(`{"alg":"HS256","typ":"JWT"}`)) + "." + enc.EncodeToString([]byte(payload)) + "." + signature
 }
