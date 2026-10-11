@@ -518,9 +518,11 @@ func (c caller) exchange(ctx context.Context, r *request, auth authorisation, et
 		if retryAfter != nil && *retryAfter > e.maxRetryDelay || retry >= e.maxRetries {
 			return received{}, auth, failure
 		}
-		wait := e.jitter(min(8*time.Second, (500*time.Millisecond)<<retry))
+		var wait time.Duration
 		if retryAfter != nil {
 			wait = *retryAfter
+		} else {
+			wait = e.jitter(min(8*time.Second, (500*time.Millisecond)<<retry))
 		}
 		if err := sleep(ctx, wait); err != nil {
 			return received{}, auth, err

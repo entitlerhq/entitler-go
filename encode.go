@@ -65,7 +65,6 @@ func queryValue(v string) (string, error) {
 const (
 	keyMessage         = "pass idempotencyKey as 1 to 200 printable ASCII characters"
 	holdKeyMessage     = "pass idempotencyKey as 1 to 193 printable ASCII characters"
-	requiredKeyMessage = "pass idempotencyKey: a key from your own unit of work, such as a message or job id"
 )
 
 // validKey reports whether an idempotency key is 1 to max printable ASCII characters that neither
@@ -93,11 +92,9 @@ func optionalKey(key string) (string, error) {
 	return key, nil
 }
 
-// requiredKey checks a key the method requires.
+// requiredKey checks a key the method requires. Go cannot tell a missing string from an empty
+// one, so an empty key fails the length rule.
 func requiredKey(key string, max int) (string, error) {
-	if key == "" {
-		return "", argError(requiredKeyMessage)
-	}
 	if !validKey(key, max) {
 		if max == 193 {
 			return "", argError(holdKeyMessage)
