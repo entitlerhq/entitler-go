@@ -1,0 +1,218 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  merge_group:
+  workflow_dispatch:
+  workflow_call:
+    secrets:
+      ENTITLER_TEST_KEY:
+        required: false
+  schedule:
+    - cron: "23 3 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint:
+    name: Lint and format
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.27.x"
+      - name: Check formatting
+        run: |
+          unformatted=$(gofmt -l . examples)
+          if [ -n "$unformatted" ]; then
+            echo "Run gofmt -w on:"
+            echo "$unformatted"
+            exit 1
+          fi
+      - run: go vet ./... && go vet -tags integration ./...
+      - run: go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0 run ./...
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.26.x"
+      - name: Staticcheck (v0.8.1 reads Go 1.26 export data, not 1.27's)
+        run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.1 -tags integration ./...
+
+  build:
+    name: Build on Go ${{ matrix.go }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        go: ["1.26.x", "1.27.x"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ matrix.go }}
+      - run: go build ./...
+      - run: go test -run '^$' -tags integration ./...
+
+  test:
+    name: Unit tests (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Go 1.26, Ubuntu
+            os: ubuntu-24.04
+            go: "1.26.x"
+            flags: -race
+          - name: Go 1.27, Ubuntu, coverage
+            os: ubuntu-24.04
+            go: "1.27.x"
+            flags: -race -coverpkg=./... -coverprofile=coverage.out
+          - name: Go 1.27, macOS
+            os: macos-15
+            go: "1.27.x"
+            flags: -race
+          - name: Go 1.27, Windows
+            os: windows-2025
+            go: "1.27.x"
+            flags: ""
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ matrix.go }}
+      - run: go test ${{ matrix.flags }} ./...
+        shell: bash
+      - name: Require 90% coverage
+        if: matrix.flags != '' && contains(matrix.flags, 'coverprofile')
+        run: |
+          total=$(go tool cover -func=coverage.out | awk '/^total:/ { sub("%", "", $3); print $3 }')
+          echo "Coverage: ${total}%"
+          awk -v total="$total" 'BEGIN { exit (total >= 90 ? 0 : 1) }'
+
+  docs:
+    name: API reference and snippets
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.27.x"
+      - name: Render the API reference
+        run: |
+          for pkg in . ./entitlertest ./generate ./cmd/entitler; do
+            go doc -all "$pkg" > /dev/null
+          done
+      - name: Require a doc comment on every exported identifier
+        run: >-
+          go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0 run
+          --default=none --enable=revive ./...
+      - run: go test -run 'TestEverySnippetCompiles|TestCommandSpelling|Example' ./...
+
+  examples:
+    name: Examples
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: examples
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.27.x"
+      - run: go vet ./...
+      - run: go build ./...
+      - run: go test ./...
+
+  package:
+    name: Package check and size
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.26.x"
+      - run: sh scripts/package-check.sh
+
+  integration:
+    name: Live API tests
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.27.x"
+      - name: Run the live API tests and the quickstart
+        env:
+          ENTITLER_TEST_KEY: ${{ secrets.ENTITLER_TEST_KEY }}
+          ENTITLER_TEST_PUBLISHABLE_KEY: ${{ vars.ENTITLER_TEST_PUBLISHABLE_KEY }}
+          EVENT: ${{ github.event_name }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          if [ -z "$ENTITLER_TEST_KEY" ]; then
+            if [ "$EVENT" = pull_request ] && { [ "$HEAD_REPO" != "$REPO" ] || [ "$ACTOR" = "dependabot[bot]" ]; }; then
+              echo "Live API tests skipped: this pull request has no access to ENTITLER_TEST_KEY."
+              exit 0
+            fi
+            echo "ENTITLER_TEST_KEY is not set."
+            exit 1
+          fi
+          go test -tags integration -run Live -v ./...
+          cd examples && ENTITLER_KEY="$ENTITLER_TEST_KEY" go run ./quickstart
+      - name: Report a failed nightly run
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Nightly live API tests failed"
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" --json number --jq '.[0].number')
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "Failed again: $RUN_URL"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "The nightly live API tests failed: $RUN_URL"
+          fi
+
+  all-checks-passed:
+    name: All checks passed
+    if: always()
+    needs: [lint, build, test, docs, examples, package, integration]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Fail unless every job succeeded
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for result in $RESULTS; do
+            if [ "$result" != success ]; then
+              echo "A required job finished with $result."
+              exit 1
+            fi
+          done
