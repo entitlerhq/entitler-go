@@ -224,3 +224,46 @@ func TestImpossibleInstantsAreRefused(t *testing.T) {
 		_ = srv.Close()
 	}
 }
+
+func TestSetToFollowsTheEventKind(t *testing.T) {
+	five := int64(5)
+	for _, c := range []struct {
+		kind  entitler.UsageEventKind
+		setTo any
+		ok    bool
+	}{
+		{entitler.UsageEventAdjust, 5, true},
+		{entitler.UsageEventAdjust, nil, false},
+		{entitler.UsageEventUse, nil, true},
+		{entitler.UsageEventUse, 5, false},
+		{"refund", nil, true},
+		{"refund", 5, true},
+	} {
+		var body map[string]any
+		_ = json.Unmarshal(entitlertest.CustomerUsage(entitler.CustomerUsage{
+			Log: entitler.UsageLog{Items: []entitler.UsageEvent{{Kind: entitler.UsageEventAdjust, SetTo: &five}}}}), &body)
+		item := body["log"].(map[string]any)["items"].([]any)[0].(map[string]any)
+		item["kind"], item["setTo"] = string(c.kind), c.setTo
+		data, _ := json.Marshal(body)
+		rt := roundTripper(func(*http.Request) (int, []byte) { return 200, data })
+		srv, _ := entitler.NewServer("ent_test_k", entitler.WithHTTPClient(&http.Client{Transport: rt}), entitler.WithoutCache(), entitler.WithMaxRetries(0))
+		usage, err := srv.Customer("u").Usage(bg, nil)
+		if c.ok != (err == nil) {
+			t.Errorf("%s with setTo %v: %v", c.kind, c.setTo, err)
+		}
+		if err == nil && (c.setTo == nil) != (usage.Log.Items[0].SetTo == nil) {
+			t.Errorf("%s with setTo %v decodes as %v", c.kind, c.setTo, usage.Log.Items[0].SetTo)
+		}
+		_ = srv.Close()
+	}
+	for _, e := range []entitler.UsageEvent{{Kind: entitler.UsageEventAdjust}, {Kind: entitler.UsageEventUse, SetTo: &five}} {
+		rt := roundTripper(func(*http.Request) (int, []byte) {
+			return 200, entitlertest.CustomerUsage(entitler.CustomerUsage{Log: entitler.UsageLog{Items: []entitler.UsageEvent{e}}})
+		})
+		srv, _ := entitler.NewServer("ent_test_k", entitler.WithHTTPClient(&http.Client{Transport: rt}), entitler.WithoutCache())
+		if _, err := srv.Customer("u").Usage(bg, nil); err != nil {
+			t.Errorf("the builder's %s event does not decode: %v", e.Kind, err)
+		}
+		_ = srv.Close()
+	}
+}

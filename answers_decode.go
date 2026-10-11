@@ -386,7 +386,18 @@ func decodeUsageEvent(o object) UsageEvent {
 		CancelledAt: o.at("cancelledAt").instantOrNull(),
 		Kind:        UsageEventKind(o.at("kind").str()),
 		Amount:      o.at("amount").int(),
-		SetTo:       o.at("setTo").intOrNull(),
+	}
+	setTo := o.at("setTo")
+	switch e.Kind {
+	case UsageEventAdjust:
+		v := setTo.int()
+		e.SetTo = &v
+	case UsageEventUse:
+		if !setTo.null() {
+			o.r.fail(setTo.path, "expected null")
+		}
+	default:
+		e.SetTo = setTo.intOrNull()
 	}
 	return e
 }

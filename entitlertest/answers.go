@@ -369,13 +369,18 @@ func UsageResult(r entitler.UsageResult) []byte { return encode(usageResultObj(r
 func usageLog(l entitler.UsageLog) obj {
 	items := []any{}
 	for _, e := range l.Items {
+		kind := or(e.Kind, entitler.UsageEventUse)
 		var setTo any
-		if e.Kind == entitler.UsageEventAdjust {
-			setTo = orNull(e.SetTo)
+		switch {
+		case kind == entitler.UsageEventUse:
+		case e.SetTo != nil:
+			setTo = *e.SetTo
+		case kind == entitler.UsageEventAdjust:
+			setTo = 0
 		}
 		items = append(items, obj{"id": e.ID, "feature": e.Feature, "source": string(or(e.Source, entitler.UsageSourceAPI)),
 			"by": orNull(e.By), "actor": orNull(e.Actor), "reason": orNull(e.Reason), "at": at(e.At),
-			"cancelledAt": atOrNull(e.CancelledAt), "kind": string(or(e.Kind, entitler.UsageEventUse)), "amount": e.Amount, "setTo": setTo})
+			"cancelledAt": atOrNull(e.CancelledAt), "kind": string(kind), "amount": e.Amount, "setTo": setTo})
 	}
 	var next any
 	if l.Next != "" {
