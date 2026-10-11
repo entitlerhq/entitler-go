@@ -272,6 +272,9 @@ func fetchBody[T any](ctx context.Context, c caller, r *request, decode func([]b
 	if err != nil {
 		return zero, meta{}, c.settle(ctx, err)
 	}
+	if out == nil {
+		return zero, m, nil
+	}
 	return out.(T), m, nil
 }
 
@@ -301,7 +304,7 @@ func (c caller) fetchJoined(ctx context.Context, r *request, decode decoder) (an
 	}
 	m := meta{replayed: got.header.Get("Idempotent-Replayed") == "true"}
 	if r.empty && len(got.body) == 0 {
-		return struct{}{}, m, nil
+		return nil, m, nil
 	}
 	out, err := decodeWith(got.body, decode)
 	if err != nil {
