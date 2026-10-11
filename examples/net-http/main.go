@@ -19,14 +19,19 @@ import (
 
 type contextKey struct{}
 
-// signedInUserID stands in for your session middleware: it answers the user the verified session
-// cookie names, and false when nobody is signed in.
+// sessions stands in for your session store: it maps a session cookie your app issued at sign-in
+// to the user it signed in.
+var sessions = map[string]string{"session-of-test_1001": "test_1001"}
+
+// signedInUserID stands in for your session middleware: it answers the user the session cookie's
+// session belongs to, and false when nobody is signed in. The cookie never names the user itself.
 func signedInUserID(r *http.Request) (string, bool) {
 	cookie, err := r.Cookie("session")
-	if err != nil || cookie.Value == "" {
+	if err != nil {
 		return "", false
 	}
-	return cookie.Value, true
+	userID, ok := sessions[cookie.Value]
+	return userID, ok
 }
 
 // customerOf answers the customer the request is for, which requireFeature put on its context.
