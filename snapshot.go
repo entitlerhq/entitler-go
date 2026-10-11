@@ -91,12 +91,12 @@ func (k *SnapshotKeys) UnmarshalJSON(data []byte) error {
 }
 
 // keepOrder keeps each key's original text, so its members stay in the order they were sent.
-func keepOrder(data []byte, keys *SnapshotKeys) error {
+func keepOrder(data []byte, keys *SnapshotKeys) {
 	var set struct {
 		Keys []json.RawMessage `json:"keys"`
 	}
 	if err := json.Unmarshal(data, &set); err != nil || len(set.Keys) != len(keys.Keys) {
-		return nil
+		return
 	}
 	for i, raw := range set.Keys {
 		var compact bytes.Buffer
@@ -104,7 +104,6 @@ func keepOrder(data []byte, keys *SnapshotKeys) error {
 			keys.Keys[i].raw = compact.Bytes()
 		}
 	}
-	return nil
 }
 
 func parseSnapshotKeys(body []byte) (SnapshotKeys, error) {
@@ -112,8 +111,8 @@ func parseSnapshotKeys(body []byte) (SnapshotKeys, error) {
 	if err != nil {
 		return SnapshotKeys{}, err
 	}
-	err = keepOrder(body, &keys)
-	return keys, err
+	keepOrder(body, &keys)
+	return keys, nil
 }
 
 func snapshotKeys(ctx context.Context, c caller) (*SnapshotKeys, error) {
@@ -233,9 +232,8 @@ func VerifySnapshot(token string, expected SnapshotExpectation) (*VerifiedSnapsh
 		return nil, snapshotInvalid(notASnapshot)
 	}
 
-	kid, _ := header["kid"].(string)
 	var key *SnapshotKey
-	if _, isString := header["kid"].(string); isString {
+	if kid, ok := header["kid"].(string); ok {
 		for i := range expected.Keys {
 			if expected.Keys[i].Kid == kid {
 				key = &expected.Keys[i]

@@ -79,7 +79,7 @@ func flags(name string, stdout, stderr io.Writer) *flag.FlagSet {
 	return fs
 }
 
-// parsed reports how a flag parse ended: 0 to go on, else the exit code.
+// parsed reports how a flag parse ended: -1 to go on, else the exit code (0 after --help).
 func parsed(err error) int {
 	switch {
 	case err == nil:

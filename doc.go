@@ -25,12 +25,12 @@
 // # Reliability
 //
 // Every call takes a context first and blocks. Each attempt has a deadline (10 seconds by
-// default, [WithTimeout]); connection failures, timeouts and 408, 429 and 5xx answers are retried
-// with backoff, honouring Retry-After; every write sends an idempotency key, so a retry never
-// applies twice. Reads of checks, entitlements, plans and pricing go through an answer cache that
-// honours max-age and revalidates with ETags, and a kept answer stands in, marked Stale, while
-// Entitler is unreachable. [Customer.IsEntitled] never fails because of Entitler: it answers its
-// default and passes the error to the function given with [WithOnError].
+// default, [WithTimeout]); connection failures, timeouts and 408, 429, 500, 502, 503 and 504
+// answers are retried with backoff, honouring Retry-After; every write sends an idempotency key,
+// so a retry never applies twice. Reads of checks, entitlements, plans and pricing go through an
+// answer cache that honours max-age and revalidates with ETags, and a kept answer stands in,
+// marked Stale, while Entitler is unreachable. [Customer.IsEntitled] never fails because of
+// Entitler: it answers its default and passes the error to the function given with [WithOnError].
 //
 // # Enums
 //

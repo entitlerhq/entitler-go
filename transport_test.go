@@ -427,3 +427,34 @@ func TestInvalidUTF8(t *testing.T) {
 		t.Error("a request was sent")
 	}
 }
+
+func TestBackoffNeverOverflows(t *testing.T) {
+	for retry, want := range map[int]time.Duration{0: 500 * time.Millisecond, 3: 4 * time.Second, 4: 8 * time.Second,
+		35: 8 * time.Second, 63: 8 * time.Second, 1 << 20: 8 * time.Second} {
+		if got := backoffLimit(retry); got != want {
+			t.Errorf("retry %d: %s", retry, got)
+		}
+	}
+	synctest.Test(t, func(t *testing.T) {
+		f := &fakeHTTP{}
+		for range 41 {
+			f.push(fakeAnswer{status: 503})
+		}
+		srv := testServer(t, f, WithMaxRetries(40))
+		var apiErr *APIError
+		if _, err := srv.Features(ctx); !errors.As(err, &apiErr) || apiErr.Status != 503 || f.count() != 41 {
+			t.Fatalf("%v after %d requests", err, f.count())
+		}
+	})
+}
+
+func TestRetryAfterOnTheError(t *testing.T) {
+	for header, want := range map[string]time.Duration{"7": 7 * time.Second, "": 0, "soon": 0} {
+		f := &fakeHTTP{}
+		f.push(fakeAnswer{status: 429, header: map[string]string{"Retry-After": header}})
+		var apiErr *APIError
+		if _, err := testServer(t, f, WithMaxRetries(0)).Features(ctx); !errors.As(err, &apiErr) || apiErr.RetryAfter != want {
+			t.Errorf("%q: %v", header, err)
+		}
+	}
+}

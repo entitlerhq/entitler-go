@@ -136,7 +136,7 @@ func FakeCustomer(values Values, opts *Options) (*entitler.ServerCustomer, *Fake
 	}
 	slices.Sort(f.order)
 	srv, err := entitler.NewServer("ent_test_entitlertest_fake",
-		entitler.WithHTTPClient(&http.Client{Transport: f}), entitler.WithMaxRetries(0), entitler.WithoutCache())
+		entitler.WithHTTPClient(&http.Client{Transport: transport{f}}), entitler.WithMaxRetries(0), entitler.WithoutCache())
 	if err != nil {
 		panic(err)
 	}
@@ -211,9 +211,12 @@ func (f *Fake) check(ft *feature) entitler.Check {
 	return c
 }
 
-// RoundTrip answers a request in memory. It is the fake's transport, and is not meant to be
-// called directly.
-func (f *Fake) RoundTrip(req *http.Request) (*http.Response, error) {
+// transport answers the fake customer's requests in memory.
+type transport struct{ f *Fake }
+
+// RoundTrip answers a request from the fake's state.
+func (t transport) RoundTrip(req *http.Request) (*http.Response, error) {
+	f := t.f
 	var body map[string]any
 	if req.Body != nil {
 		data, _ := io.ReadAll(req.Body)
@@ -470,13 +473,8 @@ func (f *Fake) record(body map[string]any, key string) (int, []byte, bool) {
 		return 200, UsageResult(res), true
 	}
 	if mode == entitler.Gate {
-		if remaining, ok := f.remaining(ft).(entitler.Amount); ok && int64(remaining) < amount {
-			res := f.result(ft, entitler.OutcomeRefused, amount, 0)
-			res.Refusal = entitler.RefusalOverAllowance
-			if v, isAmount := ft.value.(entitler.Amount); isAmount && v == 0 {
-				res.Refusal = entitler.RefusalNotEntitled
-			}
-			return 200, UsageResult(res), false
+		if refused, ok := f.refusal(ft, amount); ok {
+			return 200, UsageResult(refused), false
 		}
 	}
 	r := &report{id: f.newID("use"), feature: ft.key, amount: amount, mode: mode, at: time.Now()}
@@ -490,6 +488,21 @@ func (f *Fake) record(body map[string]any, key string) (int, []byte, bool) {
 		res.OverBy = ft.used - int64(v)
 	}
 	return 201, UsageResult(res), false
+}
+
+// refusal answers a gated report's or a hold's refusal as the API does: not_entitled when the
+// customer is not entitled and the value is 0 or on, over_allowance past the allowance.
+func (f *Fake) refusal(ft *feature, amount int64) (entitler.UsageResult, bool) {
+	res := f.result(ft, entitler.OutcomeRefused, amount, 0)
+	if !res.Entitled && (ft.value == entitler.Amount(0) || ft.value == entitler.On{}) {
+		res.Refusal = entitler.RefusalNotEntitled
+		return res, true
+	}
+	if remaining, ok := f.remaining(ft).(entitler.Amount); ok && int64(remaining) < amount {
+		res.Refusal = entitler.RefusalOverAllowance
+		return res, true
+	}
+	return res, false
 }
 
 func (f *Fake) holdResult(ft *feature, h *hold, outcome entitler.Outcome, change int64) []byte {
@@ -520,10 +533,8 @@ func (f *Fake) hold(body map[string]any, key string) (int, []byte, bool) {
 		}
 		return 200, f.holdResult(ft, h, outcome, 0), true
 	}
-	if remaining, ok := f.remaining(ft).(entitler.Amount); ok && int64(remaining) < amount {
-		res := f.result(ft, entitler.OutcomeRefused, amount, 0)
-		res.Refusal = entitler.RefusalOverAllowance
-		return 200, UsageResult(res), false
+	if refused, ok := f.refusal(ft, amount); ok {
+		return 200, UsageResult(refused), false
 	}
 	ttl := 300 * time.Second
 	if s := number(body["ttlSeconds"]); s > 0 {

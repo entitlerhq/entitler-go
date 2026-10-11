@@ -72,11 +72,12 @@ type sentEvent struct {
 }
 
 // RecordUsageBatch records usage for many customers in observe mode, in requests of at most 500
-// events. It returns an error only for a done context or a closed client: an event the SDK refuses
-// itself is not sent and answers OutcomeError with a code and message, as does every event of a
-// request that fails after its retries, while the call carries on. Resend the events answered
-// OutcomeError: their keys make any resend safe. Each request's Idempotency-Key derives from its
-// events, so the same events resent replay the first answer.
+// events. It returns an error only for a done context, a closed client or a client derived with an
+// invalid option: an event the SDK refuses itself is not sent and answers OutcomeError with a code
+// and message, as does every event of a request that fails after its retries, while the call
+// carries on. Resend the events answered OutcomeError: their keys make any resend safe. Each
+// request's Idempotency-Key derives from its events, so the same events resent replay the first
+// answer.
 func (s *Server) RecordUsageBatch(ctx context.Context, events []BatchEvent, p *RecordUsageBatchParams) (*BatchResult, error) {
 	register := p != nil && p.Register
 	out := &BatchResult{Results: make([]BatchEventResult, len(events))}
@@ -190,15 +191,18 @@ func (s *Server) sendBatch(ctx context.Context, chunk []sentEvent, register bool
 	}
 	key := batchKey(register, chunk)
 	r := &request{method: "POST", path: "/usage/events", key: key, body: marshalBody(body), writes: customers}
-	answer, m, err := fetch(ctx, s.c, r, decodeBatchAnswer)
-	if err == nil {
-		err = coversEach(answer, len(chunk))
-	}
+	answer, m, err := fetch(ctx, s.c, r, func(o object) batchAnswer {
+		a := decodeBatchAnswer(o)
+		if !coversEach(a, len(chunk)) {
+			o.r.fail("results", "expected one result for each event")
+		}
+		return a
+	})
 	if err != nil {
-		if errors.Is(err, ErrClosed) || ctx.Err() != nil && errors.Is(err, ctx.Err()) {
+		failure, ok := batchFailure(err)
+		if !ok || ctx.Err() != nil && errors.Is(err, ctx.Err()) {
 			return err
 		}
-		failure := batchFailure(err)
 		for _, ev := range chunk {
 			out.Results[ev.index].Outcome = OutcomeError
 			out.Results[ev.index].Error = &failure
@@ -212,32 +216,31 @@ func (s *Server) sendBatch(ctx context.Context, chunk []sentEvent, register bool
 	return nil
 }
 
-// coversEach checks the answer holds exactly one result for each event sent.
-func coversEach(a batchAnswer, sent int) error {
+// coversEach reports whether the answer holds exactly one result for each event sent.
+func coversEach(a batchAnswer, sent int) bool {
 	seen := make([]bool, sent)
 	for _, item := range a.results {
 		if item.index < 0 || item.index >= int64(sent) || seen[item.index] {
-			return &APIError{Status: 200, Code: CodeInvalidResponse, Message: "Entitler sent an answer this SDK cannot read",
-				cause: errors.New("the batch answer does not hold one result for each event")}
+			return false
 		}
 		seen[item.index] = true
 	}
-	if len(a.results) != sent {
-		return &APIError{Status: 200, Code: CodeInvalidResponse, Message: "Entitler sent an answer this SDK cannot read",
-			cause: errors.New("the batch answer does not hold one result for each event")}
-	}
-	return nil
+	return len(a.results) == sent
 }
 
-func batchFailure(err error) BatchError {
+// batchFailure answers the result every event of a failed request carries, and false for a
+// failure that is no request's answer (an argument error, a closed client), which the call returns.
+func batchFailure(err error) (BatchError, bool) {
 	var apiErr *APIError
 	var timeout *TimeoutError
+	var conn *ConnectionError
 	switch {
 	case errors.As(err, &apiErr):
-		return BatchError{Code: apiErr.Code, Message: apiErr.Message}
+		return BatchError{Code: apiErr.Code, Message: apiErr.Message}, true
 	case errors.As(err, &timeout):
-		return BatchError{Code: CodeTimedOut, Message: err.Error()}
-	default:
-		return BatchError{Code: CodeConnectionFailed, Message: err.Error()}
+		return BatchError{Code: CodeTimedOut, Message: err.Error()}, true
+	case errors.As(err, &conn):
+		return BatchError{Code: CodeConnectionFailed, Message: err.Error()}, true
 	}
+	return BatchError{}, false
 }

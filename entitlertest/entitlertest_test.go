@@ -472,3 +472,25 @@ func TestFakeCustomerOtherCustomer(t *testing.T) {
 	}()
 	entitlertest.FakeCustomer(entitlertest.Values{"a": "text"}, nil)
 }
+
+func TestFakeRefusalReasons(t *testing.T) {
+	credits := entitler.Metered("ai_credits")
+	for _, c := range []struct {
+		meter entitlertest.Meter
+		want  entitler.Refusal
+	}{
+		{entitlertest.Metered(0, 0), entitler.RefusalNotEntitled},
+		{entitlertest.Metered(10, 10), entitler.RefusalOverAllowance},
+	} {
+		customer, _ := entitlertest.FakeCustomer(entitlertest.Values{"ai_credits": c.meter}, nil)
+		r, err := customer.RecordUsage(ctx, credits, 1, "report", nil)
+		if err != nil || r.Outcome != entitler.OutcomeRefused || r.Refusal != c.want {
+			t.Errorf("report: %+v %v", r, err)
+		}
+		_, err = customer.StartHold(ctx, credits, 1, "hold", nil)
+		var refused *entitler.UsageRefusedError
+		if !errors.As(err, &refused) || refused.Result.Refusal != c.want {
+			t.Errorf("hold, want %s: %v", c.want, err)
+		}
+	}
+}

@@ -914,6 +914,8 @@ type CustomerDetail struct {
 	Activity []Activity
 	// Environment is the environment.
 	Environment Environment
+	// Replayed is true when Customers.Create's idempotency key was answered before; false on Details.
+	Replayed bool
 }
 
 // RegisteredCustomer is the answer to registering a customer.

@@ -74,16 +74,21 @@ func (s *Server) Customer(id string) *ServerCustomer {
 // visitor id the app keeps for the person, to keep their experiment arm. Pricing is always
 // computed now.
 func (s *Server) Pricing(ctx context.Context, p *PricingParams) (*Pricing, error) {
+	return pricing(ctx, s.c, p)
+}
+
+// pricing reads the signed-out pricing, for the server and the publishable client.
+func pricing(ctx context.Context, c caller, p *PricingParams) (*Pricing, error) {
 	r := &request{method: "GET", path: "/pricing", cached: true}
 	if err := pricingParams(r, p); err != nil {
 		return nil, err
 	}
-	pricing, m, err := fetch(ctx, s.c, r, decodePricing)
+	answer, m, err := fetch(ctx, c, r, decodePricing)
 	if err != nil {
 		return nil, err
 	}
-	pricing.Stale = m.stale
-	return &pricing, nil
+	answer.Stale = m.stale
+	return &answer, nil
 }
 
 // Features answers the catalogue's features, through the answer cache.
@@ -228,9 +233,10 @@ func (s *CustomersService) Create(ctx context.Context, p CreateCustomerParams) (
 		body["metadata"] = p.Metadata
 	}
 	r := &request{method: "POST", path: "/customers", key: key, body: marshalBody(body)}
-	detail, _, err := fetch(ctx, s.c, r, decodeCustomerDetail)
+	detail, m, err := fetch(ctx, s.c, r, decodeCustomerDetail)
 	if err != nil {
 		return nil, err
 	}
+	detail.Replayed = m.replayed
 	return &detail, nil
 }

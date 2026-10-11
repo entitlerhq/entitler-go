@@ -23,10 +23,13 @@ type Amount int64
 // Unlimited is a value with no limit (JSON "unlimited").
 type Unlimited struct{}
 
+// String answers "on".
 func (On) String() string { return "on" }
 
+// String answers the amount in decimal digits.
 func (a Amount) String() string { return strconv.FormatInt(int64(a), 10) }
 
+// String answers "unlimited".
 func (Unlimited) String() string { return "unlimited" }
 
 func (On) isValue()        {}

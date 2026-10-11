@@ -308,7 +308,7 @@ func (c caller) fetchJoined(ctx context.Context, r *request, decode decoder) (an
 	if r.empty && len(got.body) == 0 {
 		return nil, m, nil
 	}
-	out, err := decodeWith(got.body, decode)
+	out, err := decode(got.body)
 	if err != nil {
 		return nil, meta{}, invalidResponse(got, r.key, err)
 	}
@@ -316,8 +316,6 @@ func (c caller) fetchJoined(ctx context.Context, r *request, decode decoder) (an
 }
 
 type decoder func(body []byte) (any, error)
-
-func decodeWith(body []byte, decode decoder) (any, error) { return decode(body) }
 
 func invalidResponse(got received, key string, cause error) error {
 	return &APIError{
@@ -364,13 +362,13 @@ func (c caller) cachedRead(ctx context.Context, r *request, auth authorisation, 
 	kept, ok := c.cacheGet(ctx, key)
 	usable := ok && e.now().Sub(kept.ReceivedAt) < e.staleFor
 	if ok && !r.revalidate && c.fresh(kept, r.customer) {
-		if out, err := decodeWith([]byte(kept.Body), decode); err == nil {
+		if out, err := decode([]byte(kept.Body)); err == nil {
 			return out, meta{}, nil
 		}
 	}
 	stale, probe := e.outage.enter(e.now(), usable)
 	if stale {
-		if out, err := decodeWith([]byte(kept.Body), decode); err == nil {
+		if out, err := decode([]byte(kept.Body)); err == nil {
 			return out, meta{stale: true}, nil
 		}
 	}
@@ -386,9 +384,9 @@ func (c caller) cachedRead(ctx context.Context, r *request, auth authorisation, 
 		case got.status == http.StatusNotModified && !ok:
 			return nil, meta{}, apiErrorOf(got, "", e.now())
 		case got.status == http.StatusNotModified:
-			out, err = decodeWith([]byte(kept.Body), decode)
+			out, err = decode([]byte(kept.Body))
 		default:
-			out, err = decodeWith(got.body, decode)
+			out, err = decode(got.body)
 		}
 		if err != nil {
 			err = invalidResponse(got, "", err)
@@ -401,11 +399,11 @@ func (c caller) cachedRead(ctx context.Context, r *request, auth authorisation, 
 		var apiErr *APIError
 		var retryAfter *time.Duration
 		if errors.As(err, &apiErr) {
-			retryAfter = apiErr.RetryAfter
+			retryAfter = apiErr.retryAfter
 		}
 		e.outage.fail(e.now(), retryAfter, e.staleFor)
 		if usable && used.credential == auth.credential {
-			if out, derr := decodeWith([]byte(kept.Body), decode); derr == nil {
+			if out, derr := decode([]byte(kept.Body)); derr == nil {
 				e.report(err)
 				return out, meta{stale: true}, nil
 			}
@@ -511,7 +509,7 @@ func (c caller) exchange(ctx context.Context, r *request, auth authorisation, et
 			if !retried[got.status] {
 				return received{}, auth, apiErr
 			}
-			failure, retryAfter = apiErr, apiErr.RetryAfter
+			failure, retryAfter = apiErr, apiErr.retryAfter
 		} else {
 			var conn *ConnectionError
 			var timeout *TimeoutError
@@ -527,13 +525,22 @@ func (c caller) exchange(ctx context.Context, r *request, auth authorisation, et
 		if retryAfter != nil {
 			wait = *retryAfter
 		} else {
-			wait = e.jitter(min(8*time.Second, (500*time.Millisecond)<<retry))
+			wait = e.jitter(backoffLimit(retry))
 		}
 		if err := sleep(ctx, wait); err != nil {
 			return received{}, auth, err
 		}
 		retry++
 	}
+}
+
+// backoffLimit is the longest wait before retry n+1: 0.5 s doubling to 8 s, capped before the
+// shift so no retry count overflows.
+func backoffLimit(retry int) time.Duration {
+	if retry < 4 {
+		return (500 * time.Millisecond) << retry
+	}
+	return 8 * time.Second
 }
 
 func sleep(ctx context.Context, d time.Duration) error {
@@ -613,8 +620,11 @@ func apiErrorOf(got received, key string, now time.Time) *APIError {
 		Code:           CodeHTTPError,
 		Message:        "Entitler answered with HTTP " + strconv.Itoa(got.status),
 		RequestID:      got.header.Get("X-Request-Id"),
-		RetryAfter:     retryAfterOf(got.header.Get("Retry-After"), now),
 		IdempotencyKey: key,
+		retryAfter:     retryAfterOf(got.header.Get("Retry-After"), now),
+	}
+	if e.retryAfter != nil {
+		e.RetryAfter = *e.retryAfter
 	}
 	if got.status >= 300 && got.status < 400 {
 		return e

@@ -73,17 +73,19 @@ type APIError struct {
 	Message string
 	// RequestID is the x-request-id header, or "" when the answer has none. Quote it when asking about a request.
 	RequestID string
-	// RetryAfter is how long the answer asked the caller to wait (its Retry-After), or nil when it
+	// RetryAfter is how long the answer asked the caller to wait (its Retry-After), or 0 when it
 	// gave no readable value.
-	RetryAfter *time.Duration
+	RetryAfter time.Duration
 	// IdempotencyKey is the key the request sent, so the call can be repeated with it; "" for a GET.
 	IdempotencyKey string
 	// Payment is the payment a 402 answer describes, or nil.
 	Payment *Payment
 
-	cause error
+	retryAfter *time.Duration
+	cause      error
 }
 
+// Error answers the message: the API's own, or the SDK's when the body gives none.
 func (e *APIError) Error() string { return e.Message }
 
 // Unwrap answers the decoding failure behind CodeInvalidResponse, which names what failed and
@@ -101,6 +103,7 @@ type ConnectionError struct {
 	cause error
 }
 
+// Error says Entitler could not be reached, and why.
 func (e *ConnectionError) Error() string {
 	return "could not reach Entitler: " + e.cause.Error()
 }
@@ -119,6 +122,7 @@ type TimeoutError struct {
 	timeout time.Duration
 }
 
+// Error says Entitler did not answer within the attempt's timeout.
 func (e *TimeoutError) Error() string {
 	return fmt.Sprintf("Entitler did not answer within %s", e.timeout)
 }
@@ -136,6 +140,7 @@ type TokenError struct {
 	cause   error
 }
 
+// Error says why the credential could not be used, with its cause when there is one.
 func (e *TokenError) Error() string {
 	if e.cause != nil {
 		return e.message + ": " + e.cause.Error()
@@ -166,6 +171,7 @@ const (
 	CodeSnapshotExpired Code = "snapshot_expired"
 )
 
+// Error answers the message, which says why the snapshot was refused.
 func (e *SnapshotError) Error() string { return e.Message }
 
 func (*SnapshotError) entitlerError() {}
@@ -177,6 +183,7 @@ type UsageRefusedError struct {
 	Result *UsageResult
 }
 
+// Error names the feature and the refusal.
 func (e *UsageRefusedError) Error() string {
 	return fmt.Sprintf("Entitler refused the hold on %s (%s)", e.Result.Feature, refusalText(e.Result.Refusal))
 }
@@ -198,6 +205,7 @@ type UsageReplayedError struct {
 	Result *UsageResult
 }
 
+// Error says the key replays a hold that was settled, released or expired.
 func (e *UsageReplayedError) Error() string {
 	return fmt.Sprintf("the idempotency key replays a hold that is %s", e.Result.Outcome)
 }
@@ -221,6 +229,7 @@ type UsageSettlementError struct {
 	cause error
 }
 
+// Error names the hold and the failure.
 func (e *UsageSettlementError) Error() string {
 	return fmt.Sprintf("could not settle hold %s: %v", e.HoldID, e.cause)
 }

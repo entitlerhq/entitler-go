@@ -569,3 +569,20 @@ func (f roundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 	status, body := f(r)
 	return &http.Response{StatusCode: status, Header: http.Header{}, Body: io.NopCloser(bytes.NewReader(body)), Request: r}, nil
 }
+
+type replayingTripper []byte
+
+func (b replayingTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	header := http.Header{"Idempotent-Replayed": {"true"}}
+	return &http.Response{StatusCode: 201, Header: header, Body: io.NopCloser(bytes.NewReader(b)), Request: r}, nil
+}
+
+func TestCreateCustomerKeepsReplayed(t *testing.T) {
+	body := entitlertest.CustomerDetail(entitler.CustomerDetail{})
+	srv, _ := entitler.NewServer("ent_test_k", entitler.WithHTTPClient(&http.Client{Transport: replayingTripper(body)}))
+	defer srv.Close()
+	detail, err := srv.Customers.Create(bg, entitler.CreateCustomerParams{ExternalID: "x", Name: "X", IdempotencyKey: "signup-1"})
+	if err != nil || !detail.Replayed {
+		t.Fatalf("%+v %v", detail, err)
+	}
+}

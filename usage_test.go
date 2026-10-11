@@ -417,3 +417,16 @@ func TestBatchFailuresAndCancellation(t *testing.T) {
 		}
 	})
 }
+
+func TestBatchReturnsErrorsNoRequestAnswered(t *testing.T) {
+	f := &fakeHTTP{}
+	srv := testServer(t, f)
+	r, err := srv.With(WithTimeout(0)).RecordUsageBatch(ctx, events(2), nil)
+	if r != nil || !errors.Is(err, ErrInvalidArgument) || f.count() != 0 {
+		t.Errorf("a derived client's argument error: %+v %v", r, err)
+	}
+	_ = srv.Close()
+	if _, err := srv.RecordUsageBatch(ctx, events(1), nil); !errors.Is(err, ErrClosed) {
+		t.Errorf("closed: %v", err)
+	}
+}

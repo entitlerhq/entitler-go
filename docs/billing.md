@@ -147,6 +147,7 @@ default:
 | `Cancel`, `UndoPendingChange` | `403 not_self_serve`, `403 scope_required`, `404 customer_not_found`, `409 capability_required` |
 | `BillingPortal` | `403 scope_required`, `404 not_found`, `409 stale`, `409 capability_required` |
 | `SyncBilling` | `403 scope_required`, `404 customer_not_found`, `409 capability_required` |
-| `SetPlan`, `SetAddOn` | `400 invalid_body`, `402 payment_required`, `404 customer_not_found`, `409 billed_elsewhere` |
+| `SetPlan` | `400 invalid_body`, `402 payment_required`, `404 customer_not_found`, `409 billed_elsewhere` |
+| `SetAddOn` | `400 invalid_body`, `402 payment_required`, `404 customer_not_found`, `404 not_found` (no such add-on), `409 billed_elsewhere` |
 
 API messages are written for the developer, not for end users: map codes to your own copy.

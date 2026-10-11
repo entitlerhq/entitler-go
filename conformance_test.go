@@ -170,8 +170,8 @@ func apiErrorOut(err error) any {
 		return map[string]any{"kind": fmt.Sprintf("%T", err), "error": fmt.Sprint(err)}
 	}
 	var retry any
-	if e.RetryAfter != nil {
-		retry = int64(*e.RetryAfter / time.Second)
+	if e.retryAfter != nil {
+		retry = int64(e.RetryAfter / time.Second)
 	}
 	var payment any
 	if e.Payment != nil {

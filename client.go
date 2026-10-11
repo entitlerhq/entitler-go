@@ -221,16 +221,7 @@ func (c *IdentityClient) With(opts ...Option) *IdentityClient {
 // Pricing answers the pricing on sale, signed out, with the client's visitor, through the answer
 // cache.
 func (c *PublishableClient) Pricing(ctx context.Context, p *PricingParams) (*Pricing, error) {
-	r := &request{method: "GET", path: "/pricing", cached: true}
-	if err := pricingParams(r, p); err != nil {
-		return nil, err
-	}
-	pricing, m, err := fetch(ctx, c.c, r, decodePricing)
-	if err != nil {
-		return nil, err
-	}
-	pricing.Stale = m.stale
-	return &pricing, nil
+	return pricing(ctx, c.c, p)
 }
 
 // Visitor answers the visitor id the client sends on every request.
