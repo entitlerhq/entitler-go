@@ -44,8 +44,8 @@ result, err := customer.RecordUsage(ctx, entitler.Metered("ai_credits"), 1, requ
 
 Take the customer id from your authenticated session, never from anything the caller sends.
 `IsEntitled` never fails because of Entitler: it answers the default you pass (`false` for paid
-features) and reports the error to `WithOnError`. The full program is
-[`examples/quickstart`](examples/quickstart/main.go).
+features) and reports the error to `WithOnError`. [`examples/quickstart`](examples/quickstart/main.go)
+runs the same steps as a script, for the customer its configuration names.
 
 ## Two clients
 
@@ -101,7 +101,8 @@ The API reference is on [pkg.go.dev](https://pkg.go.dev/github.com/entitlerhq/en
 
 ## Examples
 
-Each runs with `ENTITLER_KEY` set to a test environment's secret key, from the `examples` folder:
+Each runs with `ENTITLER_KEY` set to a test environment's secret key, from the `examples` folder.
+The scripts act for the customer `ENTITLER_CUSTOMER` names, or a sample customer:
 
 - [`quickstart`](examples/quickstart/main.go): register, check and record usage.
 - [`pricing-page`](examples/pricing-page/main.go): pricing signed out with `ENTITLER_PUBLISHABLE_KEY`, and from a server with a visitor.

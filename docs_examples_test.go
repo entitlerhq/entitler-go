@@ -27,6 +27,32 @@ func upgradePrompt() error                               { return nil }
 func showCollaboration()                                 {}
 func instrumented(t http.RoundTripper) http.RoundTripper { return t }
 
+func docQuickStart(ctx context.Context) (*entitler.UsageResult, error) {
+	srv, err := entitler.NewServer(os.Getenv("ENTITLER_KEY"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer srv.Close()
+
+	customer := srv.Customer(signedInUserID())
+	if _, err := customer.Register(ctx, &entitler.RegisterParams{
+		Name:  new("Ada Lovelace"),
+		Email: new("ada@example.com"),
+	}); err != nil {
+		log.Fatal(err)
+	}
+
+	if customer.IsEntitled(ctx, entitler.OnOff("export_pdf"), false, nil) {
+		fmt.Println("Export to PDF is on.")
+	} else {
+		fmt.Println("Export to PDF needs an upgrade.")
+	}
+
+	requestID := "quickstart-" + time.Now().UTC().Format("20060102T150405.000")
+	result, err := customer.RecordUsage(ctx, entitler.Metered("ai_credits"), 1, requestID, nil)
+	return result, err
+}
+
 func docIsEntitled(ctx context.Context, customer entitler.Customer, document string) error {
 	if customer.IsEntitled(ctx, features.FeatureExportPdf, false, nil) {
 		return renderPDF(document)
@@ -196,6 +222,7 @@ var entitlerServer = sync.OnceValues(func() (*entitler.Server, error) {
 })
 
 var (
+	_ = docQuickStart
 	_ = docIsEntitled
 	_ = docRecord
 	_ = docObserve

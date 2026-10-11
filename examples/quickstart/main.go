@@ -1,9 +1,12 @@
-// Quickstart registers a customer, checks a feature and records usage, as a server does.
+// Quickstart registers a customer, checks a feature and records usage, as a server does. As a
+// script, it acts for the customer its configuration names: ENTITLER_CUSTOMER, or
+// sdk-go-quickstart.
 //
 //	ENTITLER_KEY=ent_test_… go run ./quickstart
 package main
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log"
@@ -13,10 +16,6 @@ import (
 	"github.com/entitlerhq/entitler-go"
 )
 
-// signedInUserID stands in for your app's authenticated session: take the customer id from it,
-// never from a header, query string or body the caller controls.
-func signedInUserID() string { return "sdk-go-quickstart" }
-
 func main() {
 	ctx := context.Background()
 	srv, err := entitler.NewServer(os.Getenv("ENTITLER_KEY"))
@@ -25,7 +24,7 @@ func main() {
 	}
 	defer srv.Close()
 
-	customer := srv.Customer(signedInUserID())
+	customer := srv.Customer(cmp.Or(os.Getenv("ENTITLER_CUSTOMER"), "sdk-go-quickstart"))
 	if _, err := customer.Register(ctx, &entitler.RegisterParams{
 		Name:  new("Ada Lovelace"),
 		Email: new("ada@example.com"),

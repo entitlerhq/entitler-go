@@ -1,10 +1,12 @@
 // Metered-work holds credits around streamed work that reports as it goes, wraps work whose cost
 // is known only afterwards in WithHold, and records work that already happened in observe mode.
+// As a script, it acts for the customer its configuration names: ENTITLER_CUSTOMER, or test_1001.
 //
 //	ENTITLER_KEY=ent_test_… go run ./metered-work
 package main
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -16,8 +18,6 @@ import (
 )
 
 var aiCredits = entitler.Metered("ai_credits")
-
-func signedInUserID() string { return "test_1001" }
 
 // streamReply holds the most a reply may cost before it starts, reports the tokens used as they
 // stream, and settles what was used however the stream ends.
@@ -65,7 +65,7 @@ func main() {
 		log.Fatal(err)
 	}
 	defer srv.Close()
-	customer := srv.Customer(signedInUserID())
+	customer := srv.Customer(cmp.Or(os.Getenv("ENTITLER_CUSTOMER"), "test_1001"))
 	run := time.Now().UTC().Format("20060102T150405.000")
 
 	if err := streamReply(ctx, customer, "message-"+run, []int64{3, 4, 2}); err != nil {

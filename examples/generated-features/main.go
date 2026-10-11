@@ -1,5 +1,6 @@
 // Generated-features uses the typed feature constants `go tool entitler generate` wrote to
 // features/entitler_features.go.
+// As a script, it acts for the customer its configuration names: ENTITLER_CUSTOMER, or test_1001.
 //
 //	ENTITLER_KEY=ent_test_… go generate ./generated-features && go run ./generated-features
 package main
@@ -7,6 +8,7 @@ package main
 //go:generate go tool entitler generate -out features/entitler_features.go -package features
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log"
@@ -17,8 +19,6 @@ import (
 	"github.com/entitlerhq/entitler-go/examples/generated-features/features"
 )
 
-func signedInUserID() string { return "test_1001" }
-
 func main() {
 	ctx := context.Background()
 	srv, err := entitler.NewServer(os.Getenv("ENTITLER_KEY"))
@@ -26,7 +26,7 @@ func main() {
 		log.Fatal(err)
 	}
 	defer srv.Close()
-	customer := srv.Customer(signedInUserID())
+	customer := srv.Customer(cmp.Or(os.Getenv("ENTITLER_CUSTOMER"), "test_1001"))
 
 	check, err := customer.Check(ctx, features.FeatureAiCredits, nil)
 	if err != nil {

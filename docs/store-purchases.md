@@ -8,8 +8,10 @@ Stripe already bills that product, the API answers `409 billed_elsewhere` and ch
 
 ## Apple
 
-1. The app buys the SKU and sends the transaction to your server.
-2. Your server verifies it with the App Store Server API.
+1. The app buys the SKU with an `appAccountToken`, a UUID your server keeps for the signed-in
+   customer, and sends the transaction to your server.
+2. Your server verifies it with the App Store Server API and takes the customer that the verified
+   transaction's `appAccountToken` belongs to, refusing one that is not the signed-in customer's.
 3. It records the purchase, ending with the transaction's expiry:
 
 ```go
@@ -23,13 +25,16 @@ _, err := customer.SetPlan(ctx, entitler.SKU{
 })
 ```
 
-4. On each renewal notification, verify it and send the same call with the new expiry and the new
-   transaction's id. A missed notification ends the plan at `Until` instead of keeping it for ever.
+4. On each renewal notification, verify its signature, take the customer its `appAccountToken`
+   belongs to, and send the same call with the new expiry and the new transaction's id. A missed
+   notification ends the plan at `Until` instead of keeping it for ever.
 5. On a refund or revocation, end the plan: `SetPlan(ctx, nil, &entitler.SetPlanParams{Product: "app", When: entitler.WhenNow})`.
 
 ## Google Play
 
-The same steps with the Play Developer API: verify the purchase token, then record
+The same steps with the Play Developer API, with an `obfuscatedAccountId` your server keeps for
+the customer: verify the purchase token, take the customer that the verified purchase's
+`obfuscatedAccountId` belongs to, then record
 `entitler.SKU{Connector: "google", IDs: map[string]string{"productId": ..., "basePlanId": ...}}`
 with `Until` set to the subscription's expiry, on each renewal too.
 

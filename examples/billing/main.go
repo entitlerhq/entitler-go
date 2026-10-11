@@ -1,10 +1,12 @@
 // Billing builds a billing page from Plans, subscribes handling every next step, syncs on the
 // return page, cancels and undoes, opens the billing portal, and makes the company's decisions.
+// As a script, it acts for the customer its configuration names: ENTITLER_CUSTOMER, or test_1002.
 //
 //	ENTITLER_KEY=ent_test_… go run ./billing
 package main
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -14,8 +16,6 @@ import (
 
 	"github.com/entitlerhq/entitler-go"
 )
-
-func signedInUserID() string { return "test_1002" }
 
 const returnURL = "https://app.example.com/billing/return"
 
@@ -104,7 +104,7 @@ func main() {
 		log.Fatal(err)
 	}
 	defer srv.Close()
-	customer := srv.Customer(signedInUserID())
+	customer := srv.Customer(cmp.Or(os.Getenv("ENTITLER_CUSTOMER"), "test_1002"))
 	run := time.Now().UTC().Format("20060102T150405.000")
 
 	steps := []func() error{

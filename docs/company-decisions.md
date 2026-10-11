@@ -8,6 +8,11 @@ shows beside the key's name. Name each idempotency key after the event (this dea
 webhook delivery), never after the deal itself: a deal won a second time after churning needs a
 new key, or its write replays the first one and moves nobody.
 
+These calls act for a customer other than the person making the request, so the customer id comes
+from a verified source: a CRM or payment provider's webhook after its signature is checked, or a
+staff tool behind its own authorisation. Never take it from a header, query string or body a caller
+controls.
+
 ## SetPlan
 
 ```go
