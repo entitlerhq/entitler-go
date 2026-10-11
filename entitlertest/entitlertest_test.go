@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 
@@ -263,7 +264,7 @@ func TestFakeCustomerMeters(t *testing.T) {
 	if over.Outcome != entitler.OutcomeRecorded || over.OverBy != 5 {
 		t.Fatalf("observe: %+v", over)
 	}
-	cancelled, _ := customer.CancelUsage(ctx, *r.ID, nil)
+	cancelled, _ := customer.CancelUsage(ctx, *r.ID, &entitler.DecisionParams{Decision: entitler.Decision{Reason: "Charged twice", Actor: "support"}})
 	if cancelled.Outcome != entitler.OutcomeCancelled || cancelled.MeterChange != -5 || cancelled.Meter.Used != 100 {
 		t.Fatalf("cancelled: %+v", cancelled)
 	}
@@ -271,7 +272,8 @@ func TestFakeCustomerMeters(t *testing.T) {
 	if replayCancelled.Outcome != entitler.OutcomeCancelled {
 		t.Fatalf("a cancelled report replays as cancelled: %+v", replayCancelled)
 	}
-	adjusted, _ := customer.AdjustMeter(ctx, credits, &entitler.AdjustMeterParams{By: new(int64(-50)), IdempotencyKey: "ticket-1"})
+	adjusted, _ := customer.AdjustMeter(ctx, credits, &entitler.AdjustMeterParams{By: new(int64(-50)), IdempotencyKey: "ticket-1",
+		Decision: entitler.Decision{Reason: "Goodwill", Actor: "support"}})
 	if adjusted.Outcome != entitler.OutcomeAdjusted || adjusted.Meter.Used != 50 || adjusted.ID == nil {
 		t.Fatalf("adjusted: %+v", adjusted)
 	}
@@ -280,8 +282,24 @@ func TestFakeCustomerMeters(t *testing.T) {
 		t.Fatalf("no change: %+v", to)
 	}
 	usage, _ := customer.Usage(ctx, nil)
-	if len(usage.Log.Items) != 4 || len(usage.Features) != 1 {
+	if len(usage.Log.Items) != 3 || len(usage.Features) != 1 {
 		t.Fatalf("log: %+v", usage.Log.Items)
+	}
+	for _, e := range usage.Log.Items {
+		switch e.ID {
+		case *r.ID:
+			if e.CancelledAt.IsZero() || e.Actor == nil || *e.Actor != "support" || e.Reason == nil || *e.Reason != "Charged twice" {
+				t.Errorf("the cancel marks the report: %+v", e)
+			}
+		case *adjusted.ID:
+			if e.Kind != entitler.UsageEventAdjust || *e.SetTo != 50 || e.Amount != -50 || e.Reason == nil || *e.Reason != "Goodwill" {
+				t.Errorf("adjustment: %+v", e)
+			}
+		default:
+			if !e.CancelledAt.IsZero() || e.Amount != 10 {
+				t.Errorf("observed report: %+v", e)
+			}
+		}
 	}
 	if _, err := customer.RecordUsage(ctx, entitler.Metered("sso"), 1, "x", nil); !isCode(err, entitler.CodeNotMetered) {
 		t.Errorf("not metered: %v", err)
@@ -348,6 +366,25 @@ func TestFakeCustomerHolds(t *testing.T) {
 	}, nil)
 	if err != nil || value != "done" {
 		t.Errorf("WithHold: %v %v", value, err)
+	}
+	if _, err := customer.SettleUsage(ctx, h.ID, 1000, nil); !isCode(err, entitler.CodeHoldSettled) {
+		t.Errorf("a settled hold's state comes before the amount: %v", err)
+	}
+	if _, err := customer.SettleUsage(ctx, h2.ID, 1000, nil); !isCode(err, entitler.CodeHoldReleased) {
+		t.Errorf("a released hold's state comes before the amount: %v", err)
+	}
+	h5, _ := customer.StartHold(ctx, credits, 5, "msg-5", nil)
+	if r, err := customer.SettleUsage(ctx, h5.ID, 0, nil); err != nil || r.Outcome != entitler.OutcomeSettled {
+		t.Errorf("settle 0: %v %v", r, err)
+	}
+	usage, _ := customer.Usage(ctx, nil)
+	var amounts []int64
+	for _, e := range usage.Log.Items {
+		amounts = append(amounts, e.Amount)
+	}
+	slices.Sort(amounts)
+	if !slices.Equal(amounts, []int64{3, 10, 30}) {
+		t.Errorf("holds, releases and settlements of 0 add no entry: %v", amounts)
 	}
 }
 

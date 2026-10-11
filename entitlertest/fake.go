@@ -304,7 +304,7 @@ func (f *Fake) serve(req *http.Request, body map[string]any) (int, []byte, bool)
 	case "release":
 		return f.release(rest[2])
 	case "cancelUsage":
-		return f.cancelUsage(rest[1])
+		return f.cancelUsage(rest[1], body)
 	case "adjust":
 		return f.adjust(rest[1], body)
 	case "grant":
@@ -430,13 +430,24 @@ func (f *Fake) result(ft *feature, outcome entitler.Outcome, amount, change int6
 		ReportedAs: entitler.UsageSourceAPI}
 }
 
-func (f *Fake) logUse(id, featureKey string, amount int64, setTo *int64) {
+func (f *Fake) logUse(id, featureKey string, amount int64, setTo *int64, decision map[string]any) {
 	kind := entitler.UsageEventUse
 	if setTo != nil {
 		kind = entitler.UsageEventAdjust
 	}
+	actor, reason := decided(decision)
 	f.log = append(f.log, entitler.UsageEvent{ID: id, Feature: featureKey, Kind: kind, Amount: amount, SetTo: setTo,
-		Source: entitler.UsageSourceAPI, At: time.Now()})
+		Source: entitler.UsageSourceAPI, At: time.Now(), Actor: actor, Reason: reason})
+}
+
+func decided(body map[string]any) (actor, reason *string) {
+	if s, ok := body["actor"].(string); ok {
+		actor = &s
+	}
+	if s, ok := body["reason"].(string); ok {
+		reason = &s
+	}
+	return actor, reason
 }
 
 func (f *Fake) record(body map[string]any, key string) (int, []byte, bool) {
@@ -472,7 +483,7 @@ func (f *Fake) record(body map[string]any, key string) (int, []byte, bool) {
 	f.reports[r.id] = r
 	f.keys[key] = keyed{report: r.id}
 	ft.used += amount
-	f.logUse(r.id, ft.key, amount, nil)
+	f.logUse(r.id, ft.key, amount, nil, nil)
 	res := f.result(ft, entitler.OutcomeRecorded, amount, amount)
 	res.ID, res.Mode, res.OccurredAt = &r.id, mode, r.at
 	if v, ok := ft.value.(entitler.Amount); ok && ft.used > int64(v) {
@@ -557,7 +568,9 @@ func (f *Fake) settle(id string, body map[string]any) (int, []byte, bool) {
 	h.state, h.settled = entitler.OutcomeSettled, amount
 	ft.held -= h.amount
 	ft.used += amount
-	f.logUse(h.id, ft.key, amount, nil)
+	if amount > 0 {
+		f.logUse(h.id, ft.key, amount, nil, nil)
+	}
 	res := f.result(ft, entitler.OutcomeSettled, amount, amount)
 	res.HoldID, res.ExpiresAt = &h.id, h.expires
 	return 200, UsageResult(res), false
@@ -578,7 +591,7 @@ func (f *Fake) release(id string) (int, []byte, bool) {
 	return 200, f.holdResult(ft, h, entitler.OutcomeReleased, 0), false
 }
 
-func (f *Fake) cancelUsage(id string) (int, []byte, bool) {
+func (f *Fake) cancelUsage(id string, body map[string]any) (int, []byte, bool) {
 	r, ok := f.reports[id]
 	if !ok {
 		return 404, Error(entitler.CodeNotFound, "No usage report has the id "+id+"."), false
@@ -589,7 +602,12 @@ func (f *Fake) cancelUsage(id string) (int, []byte, bool) {
 		r.cancelled = true
 		change = -r.amount
 		ft.used = max(ft.used-r.amount, 0)
-		f.logUse(f.newID("use"), ft.key, -r.amount, nil)
+		for i := range f.log {
+			if f.log[i].ID == r.id {
+				f.log[i].CancelledAt = time.Now()
+				f.log[i].Actor, f.log[i].Reason = decided(body)
+			}
+		}
 	}
 	res := f.result(ft, entitler.OutcomeCancelled, r.amount, change)
 	res.ID = &r.id
@@ -611,7 +629,7 @@ func (f *Fake) adjust(key string, body map[string]any) (int, []byte, bool) {
 	if ft.used != before {
 		id := f.newID("use")
 		setTo := ft.used
-		f.logUse(id, ft.key, ft.used-before, &setTo)
+		f.logUse(id, ft.key, ft.used-before, &setTo, body)
 		res.ID = &id
 	}
 	return 200, UsageResult(res), false
