@@ -61,8 +61,6 @@ func TestConformanceManifest(t *testing.T) {
 	}
 }
 
-// ---- comparison helpers ----
-
 func str(v any) string {
 	s, _ := v.(string)
 	return s
@@ -206,8 +204,6 @@ func upgradesOut(us []Upgrade) any {
 	return out
 }
 
-// ---- construction.json ----
-
 func TestConformanceConstruction(t *testing.T) {
 	for _, c := range loadCases(t, "construction.json") {
 		t.Run(str(c["name"]), func(t *testing.T) {
@@ -252,8 +248,6 @@ func TestConformanceConstruction(t *testing.T) {
 		})
 	}
 }
-
-// ---- cache-keys.json ----
 
 type keyStore struct {
 	mu   sync.Mutex
@@ -408,8 +402,6 @@ func customerRead(cu Customer, route string, params map[string]any, c map[string
 	return err
 }
 
-// ---- path-encoding.json ----
-
 func TestConformancePathEncoding(t *testing.T) {
 	for _, c := range loadCases(t, "path-encoding.json") {
 		t.Run(str(c["name"]), func(t *testing.T) {
@@ -510,8 +502,6 @@ func pathCall(cu *ServerCustomer, method, route string, params, options map[stri
 	}
 	return err
 }
-
-// ---- idempotency-keys.json ----
 
 func usageAnswer(outcome string, holdID any) string {
 	body := map[string]any{}
@@ -742,8 +732,6 @@ func runBatchCase(t *testing.T, c map[string]any) {
 	}
 }
 
-// ---- retry-timing.json ----
-
 func TestConformanceRetryTiming(t *testing.T) {
 	for _, c := range loadCases(t, "retry-timing.json") {
 		t.Run(str(c["name"]), func(t *testing.T) {
@@ -951,8 +939,6 @@ func runAttempts(t *testing.T, c map[string]any) {
 	}
 }
 
-// ---- token-refresh.json ----
-
 func TestConformanceTokenRefresh(t *testing.T) {
 	for _, c := range loadCases(t, "token-refresh.json") {
 		t.Run(str(c["name"]), func(t *testing.T) {
@@ -1021,8 +1007,6 @@ func runTokenCase(t *testing.T, c map[string]any) {
 		t.Errorf("asked the provider again: %v, want %v", asked, outcome["asksProvider"])
 	}
 }
-
-// ---- values.json ----
 
 func checkOut(ch *Check) map[string]any {
 	out := map[string]any{
@@ -1110,8 +1094,6 @@ func apiErrorOutShort(err error) any {
 	}
 	return map[string]any{"kind": full["kind"], "status": full["status"], "code": full["code"], "message": full["message"]}
 }
-
-// ---- answers.json and errors.json ----
 
 func planSummaryOut(p *PlanSummary) any {
 	if p == nil {
@@ -1377,8 +1359,6 @@ func TestConformanceAnswers(t *testing.T) { runAnswerFile(t, "answers.json") }
 
 func TestConformanceErrors(t *testing.T) { runAnswerFile(t, "errors.json") }
 
-// ---- snapshots.json ----
-
 func TestConformanceSnapshots(t *testing.T) {
 	for _, c := range loadCases(t, "snapshots.json") {
 		t.Run(str(c["name"]), func(t *testing.T) {
@@ -1436,7 +1416,6 @@ func snapshotOut(s *VerifiedSnapshot, want map[string]any) map[string]any {
 		}
 		items = append(items, item)
 	}
-	// A snapshot item may leave out some meter fields; Meter keeps them at their zero value.
 	wantEntitlements := want["entitlements"].(map[string]any)
 	for i, w := range wantEntitlements["items"].([]any) {
 		w := w.(map[string]any)

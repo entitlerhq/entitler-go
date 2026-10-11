@@ -14,15 +14,6 @@ import (
 	"github.com/entitlerhq/entitler-go"
 )
 
-// The live suite runs against https://api.entitler.dev with ENTITLER_TEST_KEY, the SDK test
-// project's development environment, and ENTITLER_TEST_PUBLISHABLE_KEY for the signed-out client:
-//
-//	go test -tags integration -run Live ./...
-//
-// It never writes the catalogue, tracks or keys. Every customer it creates has a unique id and is
-// erased at the end. The test project has no sign-in provider and no Stripe connection, so the
-// identity client and the pay, confirming and manage steps are covered by the unit tests only.
-
 var ctxLive = context.Background()
 
 // statuses records the HTTP status of every answer, so the suite can see 304s.

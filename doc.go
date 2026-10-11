@@ -32,6 +32,11 @@
 // Entitler is unreachable. [Customer.IsEntitled] never fails because of Entitler: it answers its
 // default and passes the error to the function given with [WithOnError].
 //
+// # Enums
+//
+// Every enum type is an open set: a value this version does not know is kept as it is, so the API
+// can grow without breaking an older SDK. Compare values with the constants.
+//
 // # Errors
 //
 // Failures from Entitler are an [Error]: [*APIError], [*ConnectionError], [*TimeoutError],

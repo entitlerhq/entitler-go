@@ -121,7 +121,6 @@ func TestTimeoutsAndCancellation(t *testing.T) {
 			t.Error(err)
 		}
 
-		// The caller's own deadline is never a TimeoutError.
 		f.push(fakeAnswer{failure: "hang"})
 		short, cancel := context.WithTimeout(ctx, time.Second)
 		defer cancel()
@@ -130,7 +129,6 @@ func TestTimeoutsAndCancellation(t *testing.T) {
 			t.Fatalf("got %v", err)
 		}
 
-		// A cancelled call ends a retry wait at once.
 		f.push(fakeAnswer{status: 503, header: map[string]string{"Retry-After": "9"}})
 		retrying := srv.With(WithTimeout(time.Second))
 		retrying.c.e.maxRetries = 2

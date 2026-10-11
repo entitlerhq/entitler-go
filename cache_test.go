@@ -300,12 +300,10 @@ func TestStaleAnswersAndTheOutageWindow(t *testing.T) {
 		if f.count() != 2 {
 			t.Fatalf("%d requests during the window", f.count())
 		}
-		// A read with nothing kept always goes to the network; its failure starts a new window.
 		f.push(fakeAnswer{status: 502})
 		if _, err := cu.Check(ctx, Key("g"), nil); err == nil || f.count() != 3 {
 			t.Fatalf("a read with no entry: %v %d", err, f.count())
 		}
-		// After the window, one test request goes out while the others answer stale.
 		time.Sleep(31 * time.Second)
 		gate := make(chan struct{})
 		f.handle = func(*http.Request, string) fakeAnswer {
@@ -326,7 +324,6 @@ func TestStaleAnswersAndTheOutageWindow(t *testing.T) {
 				t.Fatal("a read failed during the test")
 			}
 		}
-		// The failed test opened a new 30-second window; a success after it closes the window.
 		time.Sleep(31 * time.Second)
 		f.handle = nil
 		f.push(cached(checkBody("u", "f"), `"v2"`, "no-cache"))

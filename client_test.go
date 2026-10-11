@@ -230,8 +230,6 @@ func TestEveryDocumentedCodeIsAConstant(t *testing.T) {
 	}
 }
 
-// ---- snapshots signed in the test ----
-
 type signer struct {
 	key *ecdsa.PrivateKey
 	kid string

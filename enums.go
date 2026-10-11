@@ -1,8 +1,5 @@
 package entitler
 
-// Every enum below is an open set: a value this version does not know is kept as it is, so the
-// API can grow without breaking an older SDK. Compare with the constants.
-
 // EnvironmentKind is an environment's kind.
 type EnvironmentKind string
 
