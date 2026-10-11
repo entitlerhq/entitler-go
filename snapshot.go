@@ -62,12 +62,19 @@ func (k SnapshotKeys) MarshalJSON() ([]byte, error) {
 		if i > 0 {
 			b.WriteByte(',')
 		}
-		raw := key.raw
-		if raw == nil {
-			raw = marshalBody(map[string]string{"kty": key.Kty, "crv": key.Crv, "x": key.X, "y": key.Y,
-				"kid": key.Kid, "alg": key.Alg, "use": key.Use})
+		if key.raw != nil {
+			b.Write(key.raw)
+			continue
 		}
-		b.Write(raw)
+		b.WriteByte('{')
+		for j, member := range [][2]string{{"kty", key.Kty}, {"crv", key.Crv}, {"x", key.X}, {"y", key.Y},
+			{"kid", key.Kid}, {"alg", key.Alg}, {"use", key.Use}} {
+			if j > 0 {
+				b.WriteByte(',')
+			}
+			b.WriteString(serialise(member[0]) + ":" + serialise(member[1]))
+		}
+		b.WriteByte('}')
 	}
 	b.WriteString(`]}`)
 	return b.Bytes(), nil

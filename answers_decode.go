@@ -386,11 +386,7 @@ func decodeUsageEvent(o object) UsageEvent {
 		CancelledAt: o.at("cancelledAt").instantOrNull(),
 		Kind:        UsageEventKind(o.at("kind").str()),
 		Amount:      o.at("amount").int(),
-	}
-	if e.Kind == UsageEventAdjust {
-		e.SetTo = o.at("setTo").intOrNull()
-	} else if setTo, ok := o.opt("setTo"); ok {
-		e.SetTo = setTo.intOrNull()
+		SetTo:       o.at("setTo").intOrNull(),
 	}
 	return e
 }
