@@ -745,6 +745,3 @@ func decodeScopes(o object) Scopes {
 	}
 	return s
 }
-
-// decodeAnything accepts any JSON object, for answers the SDK passes over.
-func decodeAnything(object) struct{} { return struct{}{} }
