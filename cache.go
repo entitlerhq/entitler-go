@@ -159,6 +159,7 @@ type generations struct {
 	order     *list.List
 	floor     time.Time
 	limit     int
+	last      time.Time
 }
 
 type generation struct {
@@ -192,9 +193,26 @@ func (g *generations) moved(customer string, since genMark) bool {
 	return now.number != since.number || now.number == 0 && now.forgotten != since.forgotten
 }
 
+// stamp answers now, or just after the last stamp when the clock has not passed it, so a write
+// and a read within one clock tick still order (Windows' clock moves in steps of up to 15.6 ms).
+func (g *generations) stamp(now time.Time) time.Time {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.stampLocked(now)
+}
+
+func (g *generations) stampLocked(now time.Time) time.Time {
+	if !now.After(g.last) {
+		now = g.last.Add(time.Nanosecond)
+	}
+	g.last = now
+	return now
+}
+
 func (g *generations) bump(customer string, at time.Time) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	at = g.stampLocked(at)
 	g.counter++
 	if el, ok := g.byID[customer]; ok {
 		gen := el.Value.(*generation)

@@ -492,3 +492,28 @@ func TestCustomerForgottenInFlightIsRevalidated(t *testing.T) {
 		t.Error("no write since the mark")
 	}
 }
+
+func TestWritesAndReadsOrderWithinOneClockTick(t *testing.T) {
+	f := &fakeHTTP{handle: func(r *http.Request, _ string) fakeAnswer {
+		if r.Method == "GET" {
+			return cached(checkBody("u", "f"), `"v1"`, "max-age=600")
+		}
+		return fakeAnswer{status: 200, body: `{"changed":true}`}
+	}}
+	srv := testServer(t, f)
+	frozen := time.Now()
+	srv.c.e.now = func() time.Time { return frozen }
+	cu := srv.Customer("u")
+	_, _ = cu.Check(ctx, Key("f"), nil)
+	_, _ = cu.SyncBilling(ctx)
+	_, _ = cu.Check(ctx, Key("f"), nil)
+	_, _ = cu.Check(ctx, Key("f"), nil)
+	if f.count() != 3 {
+		t.Fatalf("an answer read after a write in the same clock tick is kept fresh: %d requests", f.count())
+	}
+	_, _ = cu.SyncBilling(ctx)
+	_, _ = cu.Check(ctx, Key("f"), nil)
+	if f.count() != 5 {
+		t.Fatalf("a write in the same clock tick still revalidates: %d requests", f.count())
+	}
+}

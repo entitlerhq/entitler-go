@@ -372,7 +372,7 @@ func (c caller) cachedRead(ctx context.Context, r *request, auth authorisation, 
 	if e.keySeen != nil {
 		e.keySeen(key)
 	}
-	started := e.now()
+	started := e.gens.stamp(e.now())
 	mark := e.gens.mark(r.customer)
 	kept, ok := c.cacheGet(ctx, key)
 	usable := ok && e.now().Sub(kept.ReceivedAt) < e.staleFor
@@ -425,7 +425,7 @@ func (c caller) cachedRead(ctx context.Context, r *request, auth authorisation, 
 		}
 		return nil, meta{}, err
 	}
-	receivedAt := e.now()
+	receivedAt := e.gens.stamp(e.now())
 	if e.gens.moved(r.customer, mark) {
 		receivedAt = started
 	}
