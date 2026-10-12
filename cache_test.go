@@ -533,3 +533,44 @@ func TestAnAnswerAsOldAsItsMaxAgeIsStaleWithinOneClockTick(t *testing.T) {
 		t.Fatalf("an answer as old as its max-age was answered fresh: %d requests", f.count())
 	}
 }
+
+func TestCustomerEvictedWhileTheirReadIsInFlightIsRevalidated(t *testing.T) {
+	inFlight, release := make(chan struct{}), make(chan struct{})
+	var once sync.Once
+	f := &fakeHTTP{handle: func(r *http.Request, _ string) fakeAnswer {
+		if r.Method == "GET" {
+			once.Do(func() {
+				close(inFlight)
+				<-release
+			})
+			return cached(checkBody("u", "f"), `"v1"`, "max-age=600")
+		}
+		return fakeAnswer{status: 200, body: `{"changed":true}`}
+	}}
+	srv := testServer(t, f)
+	frozen := time.Now()
+	srv.c.e.now = func() time.Time { return frozen }
+	srv.c.e.gens = newGenerations(2)
+	done := make(chan error)
+	go func() {
+		_, err := srv.Customer("u").Check(ctx, Key("f"), nil)
+		done <- err
+	}()
+	<-inFlight
+	for _, id := range []string{"u", "a", "b"} {
+		if _, err := srv.Customer(id).SyncBilling(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	close(release)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	before := f.count()
+	if _, err := srv.Customer("u").Check(ctx, Key("f"), nil); err != nil {
+		t.Fatal(err)
+	}
+	if f.count() != before+1 {
+		t.Fatal("an answer whose customer was evicted while it was in flight was kept fresh")
+	}
+}
