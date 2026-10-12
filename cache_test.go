@@ -517,3 +517,19 @@ func TestWritesAndReadsOrderWithinOneClockTick(t *testing.T) {
 		t.Fatalf("a write in the same clock tick still revalidates: %d requests", f.count())
 	}
 }
+
+func TestAnAnswerAsOldAsItsMaxAgeIsStaleWithinOneClockTick(t *testing.T) {
+	f := &fakeHTTP{}
+	f.push(fakeAnswer{status: 200, body: checkBody("u", "f"), header: map[string]string{"Cache-Control": "max-age=60", "Age": "60"}},
+		fakeAnswer{status: 200, body: checkBody("u", "f"), header: map[string]string{"Cache-Control": "max-age=60", "Age": "60"}})
+	srv := testServer(t, f)
+	frozen := time.Now()
+	srv.c.e.now = func() time.Time { return frozen }
+	cu := srv.Customer("u")
+	_, _ = cu.SyncBilling(ctx)
+	_, _ = cu.Check(ctx, Key("f"), nil)
+	_, _ = cu.Check(ctx, Key("f"), nil)
+	if f.count() != 3 {
+		t.Fatalf("an answer as old as its max-age was answered fresh: %d requests", f.count())
+	}
+}

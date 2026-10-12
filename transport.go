@@ -476,7 +476,7 @@ func (c caller) fresh(entry CacheEntry, customer string) bool {
 	if !ok || directive(entry.CacheControl, "no-cache") {
 		return false
 	}
-	age := c.e.now().Sub(entry.ReceivedAt) + clampDuration(time.Duration(entry.Age)*time.Second)
+	age := max(c.e.now().Sub(entry.ReceivedAt), 0) + clampDuration(time.Duration(entry.Age)*time.Second)
 	if age >= maxAge {
 		return false
 	}
