@@ -574,3 +574,78 @@ func TestCustomerEvictedWhileTheirReadIsInFlightIsRevalidated(t *testing.T) {
 		t.Fatal("an answer whose customer was evicted while it was in flight was kept fresh")
 	}
 }
+
+func TestAWriteBumpsAgainWhenItSettles(t *testing.T) {
+	for _, outcome := range []string{"succeeds", "fails", "is cancelled"} {
+		for _, timing := range []string{"before", "after"} {
+			t.Run("read answered "+timing+" the write settles, and the write "+outcome, func(t *testing.T) {
+				writing, finishWrite := make(chan struct{}), make(chan struct{})
+				reading, finishRead := make(chan struct{}), make(chan struct{})
+				var writeOnce, readOnce sync.Once
+				f := &fakeHTTP{handle: func(r *http.Request, _ string) fakeAnswer {
+					if r.Method == "GET" {
+						if timing == "after" {
+							readOnce.Do(func() {
+								close(reading)
+								<-finishRead
+							})
+						}
+						return cached(checkBody("u", "f"), `"v1"`, "max-age=600")
+					}
+					writeOnce.Do(func() { close(writing) })
+					select {
+					case <-finishWrite:
+					case <-r.Context().Done():
+						return fakeAnswer{failure: "connection"}
+					}
+					if outcome == "fails" {
+						return fakeAnswer{status: 400, body: `{"error":{"code":"invalid_body","message":"No."}}`}
+					}
+					return fakeAnswer{status: 200, body: `{"changed":true}`}
+				}}
+				srv := testServer(t, f, WithMaxRetries(0))
+				frozen := time.Now()
+				srv.c.e.now = func() time.Time { return frozen }
+				cu := srv.Customer("u")
+
+				writeCtx, cancel := context.WithCancel(ctx)
+				defer cancel()
+				wrote := make(chan struct{})
+				go func() {
+					_, _ = cu.SyncBilling(writeCtx)
+					close(wrote)
+				}()
+				<-writing
+				read := make(chan error)
+				go func() {
+					_, err := cu.Check(ctx, Key("f"), nil)
+					read <- err
+				}()
+				if timing == "after" {
+					<-reading
+				} else if err := <-read; err != nil {
+					t.Fatal(err)
+				}
+				if outcome == "is cancelled" {
+					cancel()
+				} else {
+					close(finishWrite)
+				}
+				<-wrote
+				if timing == "after" {
+					close(finishRead)
+					if err := <-read; err != nil {
+						t.Fatal(err)
+					}
+				}
+				before := f.count()
+				if _, err := cu.Check(ctx, Key("f"), nil); err != nil {
+					t.Fatal(err)
+				}
+				if f.count() != before+1 {
+					t.Fatal("an answer read while the write was in flight was served fresh after it settled")
+				}
+			})
+		}
+	}
+}

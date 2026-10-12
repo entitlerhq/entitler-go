@@ -297,10 +297,14 @@ func fetchBody[T any](ctx context.Context, c caller, r *request, decode func([]b
 
 func (c caller) fetchJoined(ctx context.Context, r *request, decode decoder) (any, meta, error) {
 	e := c.e
-	if e.gens != nil {
-		for _, customer := range r.writes {
-			e.gens.bump(customer, e.now())
+	if e.gens != nil && len(r.writes) > 0 {
+		bump := func() {
+			for _, customer := range r.writes {
+				e.gens.bump(customer, e.now())
+			}
 		}
+		bump()
+		defer bump()
 	}
 	auth := authorisation{}
 	if !r.open {
